@@ -1,7 +1,8 @@
 # BRFNTify Next
-### By RoadrunnerWMC
+### Beta Version
 
-Beta Version
+By Tempus
+"Next" version by RoadrunnerWMC
 
 ## Requirements
 
