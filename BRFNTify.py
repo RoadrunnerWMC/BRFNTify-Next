@@ -359,7 +359,6 @@ class Window(QtWidgets.QMainWindow):
                     y += self.tglp.cellHeight
 
             prog.setValue(100)
-                    
 
             self.brfntScene.clear()
             self.brfntScene.setSceneRect(0, 0, self.tglp.cellWidth * 30, self.tglp.cellHeight * (((self.tglp.row * self.tglp.column * self.tglp.amount) / 30) + 1))
@@ -464,11 +463,11 @@ class Window(QtWidgets.QMainWindow):
 
         # Reconfigure the BRFNT
         reconfigureBrfnt()
-        return
+
         try:
 
-            # Create a list to store the data
-            data = []
+            # Create a bytearray to store the data
+            data = bytearray()
 
             # Make some dummy RFNT data, to fill in later
             for i in range(16):
@@ -662,8 +661,8 @@ class Window(QtWidgets.QMainWindow):
 
     def HandleAbout(self):
         """Handles the user clicking About"""
-        try: readme = open('readme.txt', 'r').read()
-        except: readme = 'BRFNTify %s by Tempus, RoadrunnerWMC\n(No readme.txt found!)\nLicensed under GPL' % version
+        try: readme = open('readme.md', 'r').read()
+        except: readme = 'BRFNTify %s by Tempus, RoadrunnerWMC\n(No readme.md found!)\nLicensed under GPL' % version
 
         txtedit = QtWidgets.QPlainTextEdit(readme)
         txtedit.setReadOnly(True)
