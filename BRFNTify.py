@@ -349,9 +349,6 @@ class Window(QtWidgets.QMainWindow):
                 decoder = TPL.Decoder(dest, tex, w, h, self.tglp.type)
                 decoder.percentUpdated.connect(handlePctUpdated)
                 decoder.begin()
-
-                # TESTING STUFF
-                dest.save('TestImgs/%d.png' % len(Images))
                 
                 y = 0
                 for a in range(self.tglp.row):
@@ -478,7 +475,7 @@ class Window(QtWidgets.QMainWindow):
                 data.append(0)
 
             # Make the FINF data
-            f = {}
+            f = []
             for x in range(100): f.append(0)
             f[0] = 0x46494E46 # 'FINF'
 
