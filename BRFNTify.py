@@ -335,20 +335,20 @@ class Window(QtWidgets.QMainWindow):
             prog.setLabelText('Loading %s (%s format)' % (file, strformat))
             prog.open()
 
-            def handlePctUpdated(newpct):
+            def handlePctUpdated():
                 """Called when a Decoder object updates its percentage"""
+                newpct = decoder.progress
                 totalPct = (SingleTex.index(tex) / len(SingleTex)) + (newpct / len(SingleTex))
                 totalPct *= 100
                 prog.setValue(totalPct)
                 prog.update()
             
             for tex in SingleTex:
-                dest = QtGui.QImage(w,h,QtGui.QImage.Format_ARGB32)
-                dest.fill(Qt.black)
 
-                decoder = TPL.Decoder(dest, tex, w, h, self.tglp.type)
-                decoder.percentUpdated.connect(handlePctUpdated)
-                decoder.begin()
+                decoder = TPL.algorithm(self.tglp.type)
+                decoder = decoder(tex, w, h, handlePctUpdated)
+                newdata = decoder.run()
+                dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
                 
                 y = 0
                 for a in range(self.tglp.row):
@@ -461,46 +461,53 @@ class Window(QtWidgets.QMainWindow):
 
     def Save(self, fn):
 
+        # Display a warning
+        QtWidgets.QFileDialog.warning(self, 'Save', 'Saving is not yet completed. This save operation will be attempted but no guarantees.')
+
         # Reconfigure the BRFNT
         reconfigureBrfnt()
 
         try:
 
-            # Create a bytearray to store the data
-            data = bytearray()
+            # Skip RFNT until the end
 
-            # Make some dummy RFNT data, to fill in later
-            for i in range(16):
-                data.append(0)
+            # Render the glyphs to TPL
+            pass
 
-            # Make the FINF data
-            f = []
-            for x in range(100): f.append(0)
-            f[0] = 0x46494E46 # 'FINF'
+            # Pack FINF
+            # FINFbin = struct.pack('>IIBbHbBbBIIIBBBB', tmpf[16:48])
 
-            #FINF = struct.pack('>IIBbHbBbBIIIBBBB')
+            # # Pack TGLP
+            # TGLPbin = struct.pack('>IIBBbBIHHHHHHI', tmpf[48:96])
 
-            # Make the TGLP data
+            # # Pack CWDH
+            # CWDHbin = struct.pack('>3Ixxxx', tmpf, FINF[10] - 8)
 
-            # Make the CWDH data
+            # # Pack CWDH2
+            # CWDH2 = []
 
-            # Make the real RFNT data
-            r = []
-            for x in range(6): r.append(0)
-            r[0] = 0x52464E54 # 'RFNT'
-            r[1] = self.rfnt.versionmajor
-            r[2] = self.rfnt.versionminor
-            r[3] = len(data)
-            r[4] = 0x10
-            r[5] = self.rfnt.chunkcount
-            RFNT = struct.pack('>IHHIHH', *r)
-            for i in range(len(RFNT)):
-                data[i] = RFNT[i]
+            # # Pack CMAP
+            # CMAP = []
+
+            # Pack RFNT
+            RFNTdata = (
+                b'RFNT',
+                self.rfnt.versionmajor,
+                self.rfnt.versionminor,
+                0, # length of entire font - figure out how to put this together later?
+                0x10,
+                self.rfnt.chunkcount,
+                )
+            RFNTbin = struct.pack('>IHHIHH', RFNTdata)
+
+            # Put everything together
+            finaldata = bytes()
+
 
 
             # Save data
             with open(fn, 'wb') as f:
-                f.write(bytes(data))
+                f.write(finaldata)
             f.close()
 
 
