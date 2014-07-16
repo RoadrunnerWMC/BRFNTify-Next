@@ -345,7 +345,7 @@ class Window(QtWidgets.QMainWindow):
             
             for tex in SingleTex:
 
-                decoder = TPL.algorithm(self.tglp.type)
+                decoder = TPL.decoder(self.tglp.type)
                 decoder = decoder(tex, w, h, handlePctUpdated)
                 newdata = decoder.run()
                 dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
@@ -462,7 +462,7 @@ class Window(QtWidgets.QMainWindow):
     def Save(self, fn):
 
         # Display a warning
-        QtWidgets.QFileDialog.warning(self, 'Save', 'Saving is not yet completed. This save operation will be attempted but no guarantees.')
+        QtWidgets.QMessageBox.warning(self, 'Save', 'Saving is not yet completed. This save operation will be attempted but no guarantees.')
 
         # Reconfigure the BRFNT
         reconfigureBrfnt()
@@ -472,7 +472,7 @@ class Window(QtWidgets.QMainWindow):
             # Skip RFNT until the end
 
             # Render the glyphs to TPL
-            pass
+            texs = self.RenderGlyphsToTPL()
 
             # Pack FINF
             # FINFbin = struct.pack('>IIBbHbBbBIIIBBBB', tmpf[16:48])
@@ -491,19 +491,17 @@ class Window(QtWidgets.QMainWindow):
 
             # Pack RFNT
             RFNTdata = (
-                b'RFNT',
+                0x52464E54, # b'RFNT'
                 self.rfnt.versionmajor,
                 self.rfnt.versionminor,
                 0, # length of entire font - figure out how to put this together later?
                 0x10,
                 self.rfnt.chunkcount,
                 )
-            RFNTbin = struct.pack('>IHHIHH', RFNTdata)
+            RFNTbin = struct.pack('>IHHIHH', *RFNTdata)
 
             # Put everything together
             finaldata = bytes()
-
-
 
             # Save data
             with open(fn, 'wb') as f:
@@ -523,7 +521,7 @@ class Window(QtWidgets.QMainWindow):
 
 
 
-        except Exception as e:
+        except UnicodeDecodeError as e:
             toplbl = QtWidgets.QLabel('An error occured while trying to save this file. Please refer to the information below for more details.')
 
             # This is a ridiculous way to do this, but it works...
@@ -557,8 +555,79 @@ class Window(QtWidgets.QMainWindow):
             dlg.exec_()
 
 
+    def RenderGlyphsToTPL(self):
+        """
+        Renders the glyphs to the correct Nintendo image encoding
+        """
+        prog = QtWidgets.QProgressDialog(self)
+        prog.setRange(0, 100)
+        prog.setValue(0)
+        prog.setAutoClose(True)
+        prog.setWindowTitle('Saving Font')
+        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[self.tglp.type]
+        prog.setLabelText('Saving the file (%s format)' % (strformat))
+        prog.open()
+
+        imagenum = len(FontItems) // 64
+        imagenum += 1 if len(FontItems) % 64 else 0
+
+        def handlePctUpdated():
+            """Called when a Decoder object updates its percentage"""
+            newpct = encoder.progress
+            totalPct = (texnum / imagenum) + (newpct / imagenum)
+            totalPct *= 100
+            prog.setValue(totalPct)
+            prog.update()
+        
+
+        texs = []
+        for texnum in range(imagenum):
+
+            glyphs = FontItems[texnum * 64: (texnum * 64) + 64]
+            glyphW, glyphH = self.tglp.cellWidth, self.tglp.cellHeight
+
+            # Put the glyphs together
+            texImg = QtGui.QImage(glyphW * 8, glyphH * 8, QtGui.QImage.Format_ARGB32)
+            texImg.fill(Qt.transparent)
+            painter = QtGui.QPainter(texImg)
+            i = 0
+            for y in range(8):
+                for x in range(8):
+                    if i >= len(glyphs): continue
+                    painter.drawPixmap(x * glyphW, y * glyphH, glyphs[i].pixmap)
+                    i += 1
+            del painter
+            import random
+            texImg.save(str(random.random()) + '.png')
+
+            # The recommended method:
+            # texImg.constBits().asstring(texImg.byteCount())
+            # is giving me trouble. For future reference, the error is
+            # SystemError: Bad call flags in PyCFunction_Call. METH_OLDARGS is no longer supported!
+            # So I'll have to do this the slow way. :(
+            tex = bytearray(texImg.width() * texImg.height() * 4)
+            i = 0
+            for y in range(texImg.height()):
+                for x in range(texImg.width()):
+                    px = texImg.pixel(x, y)
+                    tex[i + 0] = QtGui.qAlpha(px)
+                    tex[i + 1] = QtGui.qRed(px)
+                    tex[i + 2] = QtGui.qGreen(px)
+                    tex[i + 3] = QtGui.qBlue(px)
+
+            # Encode into IA4 format
+            encoder = TPL.encoder(TPL.IA4)
+            encoder = encoder(tex, texImg.width(), texImg.height(), handlePctUpdated)
+            texs.append(bytes(encoder.run()))
+
+        prog.setValue(100)
+        return texs
+
+
     def HandleGenerate(self):
-        """Generate a font"""
+        """
+        Generate a font
+        """
         
         dlg = GenerateDialog()
         if dlg.exec_() == QtWidgets.QDialog.Accepted:

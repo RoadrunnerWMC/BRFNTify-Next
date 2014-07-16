@@ -1,17 +1,15 @@
 try:
-	raise ImportError('')
-	print('a')
-	import pyximport
-	print('b')
-	pyximport.install()
-	print('c')
-	import TPLcy
-	print('d')
+    raise ImportError('')
+    print('a')
+    import pyximport
+    print('b')
+    pyximport.install()
+    print('c')
+    import TPLcy
+    print('d')
 except ImportError:
-	print('e')
-	from TPLpy import *
-	print('f')
-print('g')
+    print('Unable to load TPLcy; falling back to TPLpy')
+    import TPLpy as TPLbackend
 
 # Enums
 I4 = 0
@@ -26,12 +24,26 @@ CI8 = 9
 CI14x2 = 10
 CMPR = 14
 
-def algorithm(type):
-    """Returns the appropriate algorithm based on the type specified"""
+def decoder(type):
+    """Returns the appropriate decoding algorithm based on the type specified"""
     if not isinstance(type, int):
         raise TypeError('Type is not an int')
 
-    if type == CI4:
+    if type == I4:
+    	return TPLbackend.I4Decoder
+    elif type == I8:
+    	return TPLbackend.I8Decoder
+    elif type == IA4:
+    	return TPLbackend.IA4Decoder
+    elif type == IA8:
+    	return TPLbackend.IA8Decoder
+    elif type == RGB565:
+    	return TPLbackend.RGB565Decoder
+    elif type == RGB4A3:
+    	return TPLbackend.RGB4A3Decoder
+    elif type == RGBA8:
+    	return TPLbackend.RGBA8Decoder
+    elif type == CI4:
         raise ValueError('CI4 is not supported')
     elif type == CI8:
         raise ValueError('CI8 is not supported')
@@ -39,20 +51,36 @@ def algorithm(type):
         raise ValueError('CI14x2 is not supported')
     elif type == CMPR:
         raise ValueError('CMPR is not supported')
-    elif type < 0 or type in (7, 11, 12, 13) or type > 14:
+    else:
         raise ValueError('Unrecognized type')
 
+
+def encoder(type):
+    """Returns the appropriate algorithm based on the type specified"""
+    if not isinstance(type, int):
+        raise TypeError('Type is not an int')
+
     if type == I4:
-    	return I4Decoder
+        return TPLbackend.I4Encoder
     elif type == I8:
-    	return I8Decoder
+        return TPLbackend.I8Encoder
     elif type == IA4:
-    	return IA4Decoder
+        return TPLbackend.IA4Encoder
     elif type == IA8:
-    	return IA8Decoder
+        return TPLbackend.IA8Encoder
     elif type == RGB565:
-    	return RGB565Decoder
+        return TPLbackend.RGB565Encoder
     elif type == RGB4A3:
-    	return RGB4A3Decoder
+        return TPLbackend.RGB4A3Encoder
     elif type == RGBA8:
-    	return RGBA8Decoder
+        return TPLbackend.RGBA8Encoder
+    elif type == CI4:
+        raise ValueError('CI4 is not supported')
+    elif type == CI8:
+        raise ValueError('CI8 is not supported')
+    elif type == CI14x2:
+        raise ValueError('CI14x2 is not supported')
+    elif type == CMPR:
+        raise ValueError('CMPR is not supported')
+    else:
+        raise ValueError('Unrecognized type')
