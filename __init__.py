@@ -35,10 +35,11 @@ using_cython = True
 try:
     import pyximport
     pyximport.install()
-    from cython_backend import *
+    from .cython_backend import *
 except ImportError:
-    from python_backend import *
+    from .python_backend import *
     using_cython = False
+
 
 # Enums
 I4 = 0
@@ -53,8 +54,12 @@ CI8 = 9
 CI14x2 = 10
 CMPR = 14
 
+
+
 def decoder(type):
-    """Returns the appropriate decoding algorithm based on the type specified"""
+    """
+    Returns the appropriate decoding algorithm based on the type specified
+    """
     if not isinstance(type, int):
         raise TypeError('Type is not an int')
 
@@ -85,7 +90,9 @@ def decoder(type):
 
 
 def encoder(type):
-    """Returns the appropriate algorithm based on the type specified"""
+    """
+    Returns the appropriate encoding algorithm based on the type specified
+    """
     if not isinstance(type, int):
         raise TypeError('Type is not an int')
 

@@ -83,11 +83,6 @@ class I4Decoder(Decoder):
     # Format:
     # IIII
     bytesPerPixel = .5
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -139,11 +134,6 @@ class I4Encoder(Encoder):
     # Format:
     # IIII
     bytesPerPixel = .5
-    def __init__(self, argb, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the encoder
-        """
-        super().__init__(argb, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -197,11 +187,6 @@ class I8Decoder(Decoder):
     # Format:
     # IIIIIIII
     bytesPerPixel = 1
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -244,11 +229,6 @@ class I8Encoder(Encoder):
     # Format:
     # IIIIIIII
     bytesPerPixel = 1
-    def __init__(self, argb, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the encoder
-        """
-        super().__init__(argb, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -291,11 +271,6 @@ class IA4Decoder(Decoder):
     # Format:
     # IIIIAAAA
     bytesPerPixel = 1
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -340,11 +315,6 @@ class IA4Encoder(Encoder):
     # Format:
     # IIIIAAAA
     bytesPerPixel = 1
-    def __init__(self, argb, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the encoder
-        """
-        super().__init__(argb, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -387,11 +357,6 @@ class IA8Decoder(Decoder):
     # Format:
     # IIIIIIII AAAAAAAA
     bytesPerPixel = 2
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -436,11 +401,6 @@ class IA8Encoder(Encoder):
     # Format:
     # IIIIIIII AAAAAAAA
     bytesPerPixel = 2
-    def __init__(self, argb, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the encoder
-        """
-        super().__init__(argb, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -484,11 +444,6 @@ class RGB565Decoder(Decoder):
     # Format:
     # RRRRRGGG GGGBBBBB
     bytesPerPixel = 2
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -541,11 +496,6 @@ class RGB4A3Decoder(Decoder):
     # 1BBBBBGG GGGRRRRR
     # 0RRRRGGG GBBBBAAA
     bytesPerPixel = 2
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
@@ -602,11 +552,6 @@ class RGBA8Decoder(Decoder):
     # Format:
     # RRRRRRRR GGGGGGGG BBBBBBBB AAAAAAAA
     bytesPerPixel = 4
-    def __init__(self, tex, width, height, updater=None, updateInterval=0.1):
-        """
-        Initializes the decoder
-        """
-        super().__init__(tex, width, height, updater, updateInterval)
 
     def run(self):
         """
