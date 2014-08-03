@@ -14,6 +14,7 @@ Requires Python 3 and PyQt5
  * RoadrunnerWMC, for making it better
  * RVLution.net, for being an awesome Wii hacking site
  * Everybody else who deserves credit
+ * FlatIcons.net, for the icon set
 
 ## TODO:
  * TPL
@@ -26,5 +27,5 @@ Requires Python 3 and PyQt5
    - Encoding Selector
  * Saving!
  * More icons
- * New icon set
  * First time showing the Text Preview dock causes the scene to go black?
+ * New readme

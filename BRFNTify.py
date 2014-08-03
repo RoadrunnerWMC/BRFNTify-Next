@@ -57,7 +57,7 @@ def module_path():
 
 def GetIcon(name):
     """Helper function to grab a specific icon"""
-    return QtGui.QIcon('data/icon_%s.png' % name)
+    return QtGui.QIcon('data/icon-%s.png' % name)
 
 def createHorzLine():
     """Helper to create a horizontal line widget"""
@@ -97,8 +97,8 @@ class Window(QtWidgets.QMainWindow):
         self.setCentralWidget(self.view)
         self.setWindowTitle('BRFNTify Next')
         ico = QtGui.QIcon()
-        ico.addPixmap(QtGui.QPixmap('data/icon_logobig.png'))
-        ico.addPixmap(QtGui.QPixmap('data/icon_logosmall.png'))
+        ico.addPixmap(QtGui.QPixmap('data/icon-logobig.png'))
+        ico.addPixmap(QtGui.QPixmap('data/icon-logosmall.png'))
         self.setWindowIcon(ico)
 
         self.fontDock = FontMetricsDock(self)
@@ -135,7 +135,7 @@ class Window(QtWidgets.QMainWindow):
         self.actions['ascent'].setCheckable(True)
         self.actions['baseline'].setCheckable(True)
         self.actions['widths'].setCheckable(True)
-        self.CreateAction('about', self.HandleAbout, None, '&About', 'About BRFNTify Next', 'Ctrl+H')
+        self.CreateAction('about', self.HandleAbout, GetIcon('about'), '&About', 'About BRFNTify Next', 'Ctrl+H')
 
         self.actions['fontmetrics'] = self.fontDock.toggleViewAction()
         self.actions['fontmetrics'].setText('&Font Metrics')
