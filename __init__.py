@@ -35,9 +35,9 @@ using_cython = True
 try:
     import pyximport
     pyximport.install()
-    from .cython_backend import *
+    from .backend_cython import *
 except ImportError:
-    from .python_backend import *
+    from .backend_python import *
     using_cython = False
 
 

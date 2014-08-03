@@ -151,19 +151,19 @@ class I4Encoder(Encoder):
                         if xpixel >= w or ypixel >= h:
                             continue
 
-                        newpixelB = argbBuf[(((ypixel * w) + xpixel) * 4) + 0]
-                        newpixelG = argbBuf[(((ypixel * w) + xpixel) * 4) + 1]
-                        newpixelR = argbBuf[(((ypixel * w) + xpixel) * 4) + 2]
-                        newpixelA = argbBuf[(((ypixel * w) + xpixel) * 4) + 3]
+                        newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 0]
+                        newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
+                        newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
+                        newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
                         newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
                         newpixel = int(newpixel * (newpixelA / 255))
 
                         texBuf[i] = int(newpixel * 15 / 255) << 4 # upper nybble
 
-                        newpixelB = argbBuf[(((ypixel * w) + xpixel) * 4) + 4]
-                        newpixelG = argbBuf[(((ypixel * w) + xpixel) * 4) + 5]
-                        newpixelR = argbBuf[(((ypixel * w) + xpixel) * 4) + 6]
-                        newpixelA = argbBuf[(((ypixel * w) + xpixel) * 4) + 7]
+                        newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 4]
+                        newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 5]
+                        newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 6]
+                        newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 7]
                         newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
                         newpixel = int(newpixel * (newpixelA / 255))
 
