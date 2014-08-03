@@ -4,6 +4,8 @@
 
 A Python library for decoding and encoding Nintendo image formats.
 
+The reason for moving this code into a Python extention is that many Python programs duplicate this code already. Programs that use such code include Reggie, BRFNTify, Puzzle, Koopatlas, Koopuzzle and Koopuzzle Tileset Generator. In addition, TPLLib is more powerful than any of the algorithms currently used in these programs. It contains an optional Cython backend for a further speedup.
+
 ## Installation Instructions
 - Navigate to your Python installation
 - Click on "Lib", then "site-packages"
