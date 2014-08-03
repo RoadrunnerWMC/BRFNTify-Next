@@ -29,10 +29,15 @@
 
 # Imports
 
-import sip, struct, sys, os, traceback, TPL
+import os
+import struct
+import sys
+import traceback
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
+
+import TPLLib
 
 
 
@@ -345,7 +350,7 @@ class Window(QtWidgets.QMainWindow):
             
             for tex in SingleTex:
 
-                decoder = TPL.decoder(self.tglp.type)
+                decoder = TPLLib.decoder(self.tglp.type)
                 decoder = decoder(tex, w, h, handlePctUpdated)
                 newdata = decoder.run()
                 dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
@@ -616,7 +621,7 @@ class Window(QtWidgets.QMainWindow):
                     tex[i + 3] = QtGui.qBlue(px)
 
             # Encode into IA4 format
-            encoder = TPL.encoder(TPL.IA4)
+            encoder = TPLLib.encoder(TPLLib.IA4)
             encoder = encoder(tex, texImg.width(), texImg.height(), handlePctUpdated)
             texs.append(bytes(encoder.run()))
 
