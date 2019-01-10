@@ -3,7 +3,7 @@
 
 # BRFNTify - Editor for Nintendo BRFNT font files
 # Version Next Beta 1
-# Copyright (C) 2009-2014 Tempus, RoadrunnerWMC
+# Copyright (C) 2009-2019 Tempus, RoadrunnerWMC
 
 # This file is part of BRFNTify.
 
