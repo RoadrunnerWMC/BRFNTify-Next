@@ -44,8 +44,7 @@ import TPLLib
 
 # Globals
 version = 'Beta 1'
-FontItems = []
-Encoding = None
+Font = None
 CharacterNames = {}
 
 
@@ -100,7 +99,7 @@ class Window(QtWidgets.QMainWindow):
     """
 
     def __init__(self):
-        QtWidgets.QMainWindow.__init__(self, None)
+        super().__init__(None)
         self.savename = ''
 
         centralWidget = QtWidgets.QWidget()
@@ -245,10 +244,42 @@ class Window(QtWidgets.QMainWindow):
         return QtCore.QSize(786, 512)
 
 
+    def ShowErrorBox(self, caption):
+        """
+        Show a nice error box for the current exception
+        """
+        toplbl = QtWidgets.QLabel(caption)
+
+        exc_type, exc_value, tb = sys.exc_info()
+        fl = io.StringIO()
+        traceback.print_exception(exc_type, exc_value, tb, file=fl)
+        fl.seek(0)
+        btm = fl.read()
+
+        txtedit = QtWidgets.QPlainTextEdit(btm)
+        txtedit.setReadOnly(True)
+
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(toplbl)
+        layout.addWidget(txtedit)
+        layout.addWidget(buttonBox)
+
+        dlg = QtWidgets.QDialog()
+        dlg.setLayout(layout)
+        dlg.setModal(True)
+        dlg.setMinimumWidth(384)
+        dlg.setWindowTitle('Error')
+        buttonBox.accepted.connect(dlg.accept)
+        dlg.exec_()
+
+
     def HandleOpen(self):
         """
         Open a Binary Revolution Font (.brfnt) file for editing
         """
+        global Font
 
         # File Dialog
         fn = QtWidgets.QFileDialog.getOpenFileName(self, 'Choose a Font', '', 'Wii font files (*.brfnt);;All Files(*)')[0]
@@ -260,148 +291,20 @@ class Window(QtWidgets.QMainWindow):
             with open(fn, 'rb') as f:
                 tmpf = f.read()
 
-            RFNT = struct.unpack_from('>IHHIHH', tmpf[0:16])
-            FINF = struct.unpack_from('>IIBbHbBbBIIIBBBB', tmpf[16:48])
-            TGLP = struct.unpack_from('>IIBBbBIHHHHHHI', tmpf[48:96])
-            CWDH = struct.unpack_from('>3Ixxxx', tmpf, FINF[10] - 8)
-            CWDH2 = []
-            CMAP = []
-
-
-            position = FINF[10] + 8
-            for i in range(CWDH[2]+1):
-                Entry = struct.unpack_from('>bBb', tmpf, position)
-                position += 3
-                CWDH2.append((Entry[0], Entry[1], Entry[2]))
-
-            position = FINF[11]
-            while position != 0:
-                Entry = struct.unpack_from('>HHHxxIH', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
-                if Entry[2] == 0:
-                    index = Entry[4]
-                    for glyph in range(Entry[0], Entry[1] + 1):
-                        CMAP.append((index, glyph))
-                        index += 1
-
-                elif Entry[2] == 1:
-                    indexdat = tmpf[(position+12) : (position+12+((Entry[1]-Entry[0]+1)*2))]
-                    entries = struct.unpack('>' + str(int(len(indexdat)/2)) + 'H', indexdat)
-                    for i, glyph in enumerate(range(Entry[0], Entry[1]+1)):
-                        index = entries[i]
-                        if index == 0xFFFF:
-                            pass
-                        else:
-                            CMAP.append((index, glyph))
-
-                elif Entry[2] == 2:
-                    entries = struct.unpack_from('>' + str(Entry[4]*2) + 'H', tmpf, position+0xE)
-                    for i in range(Entry[4]):
-                        CMAP.append((entries[i * 2 + 1], entries[i * 2]))
-
-                else:
-                    raise ValueError('Unknown CMAP type!')
-                    break
-
-                position = Entry[3]
-
-
-            self.rfnt = brfntHeader(RFNT[1], RFNT[2], RFNT[5])
-            self.finf = FontInformation(FINF[2], FINF[3], FINF[4], FINF[5], FINF[6], FINF[7], FINF[8], FINF[12], FINF[13], FINF[14], FINF[15])
-            self.tglp = TextureInformation(TGLP[2], TGLP[3], TGLP[4], TGLP[5], TGLP[6], TGLP[7], TGLP[8], TGLP[9], TGLP[10], TGLP[11], TGLP[12])
-
-            global Encoding
-            if self.finf.encoding == 1:
-                Encoding = 'UTF-16BE'
-            elif self.finf.encoding == 2:
-                Encoding = 'SJIS'
-            elif self.finf.encoding == 3:
-                Encoding = 'windows-1252'
-            elif self.finf.encoding == 4:
-                Encoding = 'hex'
-            else:
-                Encoding = 'UTF-8'
-
-
-            TPLDat = tmpf[96:(TGLP[1] + 48)]
-            w = self.tglp.width
-            h = self.tglp.height
-
+            Font = BRFNT(tmpf)
 
             self.fontDock.updateFields(self)
-
-            SingleTex = []
-            Images = []
-            length = self.tglp.textureSize
-            offset = 0
-            charsPerTex = self.tglp.column * self.tglp.row
-
-            for tex in range(self.tglp.amount):
-                SingleTex.append(struct.unpack('>' + str(length) + 'B', TPLDat[offset:length+offset]))
-                offset += length
-
-            prog = QtWidgets.QProgressDialog(self)
-            prog.setRange(0, 100)
-            prog.setValue(0)
-            prog.setAutoClose(True)
-            prog.setWindowTitle('Loading Font')
-            file = fn.replace('\\', '/').split('/')[-1]
-            strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[self.tglp.type]
-            prog.setLabelText('Loading %s (%s format)' % (file, strformat))
-            prog.open()
-
-            def handlePctUpdated():
-                """
-                Called when a Decoder object updates its percentage
-                """
-                newpct = decoder.progress
-                totalPct = (SingleTex.index(tex) / len(SingleTex)) + (newpct / len(SingleTex))
-                totalPct *= 100
-                prog.setValue(totalPct)
-                prog.update()
-
-            for tex in SingleTex:
-
-                decoder = TPLLib.decoder(self.tglp.type)
-                decoder = decoder(tex, w, h, handlePctUpdated)
-                newdata = decoder.run()
-                dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
-
-                y = 0
-                for a in range(self.tglp.row):
-                    x = 0
-                    for b in range(self.tglp.column):
-                        Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.tglp.cellWidth, self.tglp.cellHeight)))
-                        x += self.tglp.cellWidth
-                    y += self.tglp.cellHeight
-
-            prog.setValue(100)
-
             self.brfntScene.clear()
-            self.brfntScene.setSceneRect(0, 0, self.tglp.cellWidth * 30, self.tglp.cellHeight * (((self.tglp.row * self.tglp.column * self.tglp.amount) / 30) + 1))
+            self.brfntScene.setSceneRect(
+                0,
+                0,
+                Font.tglp.cellWidth * 30,
+                Font.tglp.cellHeight * (((Font.tglp.row * Font.tglp.column * Font.tglp.amount) / 30) + 1))
 
-
-
-
-            CMAP.sort(key=lambda x: x[0])
-
-            for i in range(len(CMAP), len(Images)):
-                CMAP.append((0xFFFF,0xFFFF))
-
-            for i in range(len(CWDH2), len(Images)):
-                CWDH2.append((0xFF,0xFF,0xFF))
-
-
-            global FontItems
-            FontItems = []
-            i = 0
-            for tex in Images:
-                if CMAP[i][1] == 0xFFFF: continue
-                FontItems.append(Glyph(tex, CMAP[i][1], CWDH2[i][0], CWDH2[i][1], CWDH2[i][2]))
-                i += 1
             x = 0
             y = 0
             i = 0
-            for item in FontItems:
+            for item in Font.glyphs:
                 if i >= 30:
                     x = 0
                     y = y + item.pixmap.height()
@@ -412,7 +315,7 @@ class Window(QtWidgets.QMainWindow):
                 x = x + item.pixmap.width()
                 i += 1
 
-            self.view.updateDisplay(self.rfnt, self.finf, self.tglp)
+            self.view.updateDisplay()
             self.view.setScene(self.brfntScene)
             self.prevDock.updatePreview()
             self.view.columns = 1
@@ -422,31 +325,7 @@ class Window(QtWidgets.QMainWindow):
             self.setWindowTitle('BRFNTify Next - %s' % fn.replace('\\', '/').split('/')[-1])
 
         except Exception as e:
-            toplbl = QtWidgets.QLabel('An error occured while trying to load this file. Please refer to the information below for more details.')
-
-            exc_type, exc_value, tb = sys.exc_info()
-            fl = io.StringIO()
-            traceback.print_exception(exc_type, exc_value, tb, file=fl)
-            fl.seek(0)
-            btm = fl.read()
-
-            txtedit = QtWidgets.QPlainTextEdit(btm)
-            txtedit.setReadOnly(True)
-
-            buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(toplbl)
-            layout.addWidget(txtedit)
-            layout.addWidget(buttonBox)
-
-            dlg = QtWidgets.QDialog()
-            dlg.setLayout(layout)
-            dlg.setModal(True)
-            dlg.setMinimumWidth(384)
-            dlg.setWindowTitle('Error')
-            buttonBox.accepted.connect(dlg.accept)
-            dlg.exec_()
+            self.ShowErrorBox('An error occured while trying to load this file. Please refer to the information below for more details.')
 
 
     def HandleSave(self):
@@ -457,7 +336,10 @@ class Window(QtWidgets.QMainWindow):
             self.HandleSaveAs()
             return
 
-        self.Save(self.savename)
+        data = self.Save()
+        if data:
+            with open(self.savename, 'wb') as f:
+                f.write(data)
 
 
     def HandleSaveAs(self):
@@ -466,14 +348,14 @@ class Window(QtWidgets.QMainWindow):
         """
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', 'Wii font files (*.brfnt);;All Files(*)')[0]
         if not fn: return
-        self.Save(fn)
-
         self.savename = fn
 
+        self.HandleSave()
 
-    def Save(self, fn):
+
+    def Save(self):
         """
-        Save the font file to the given filename
+        Save the font file and return its data
         """
 
         # Display a warning
@@ -519,54 +401,10 @@ class Window(QtWidgets.QMainWindow):
             finaldata = bytes()
 
             # Save data
-            with open(fn, 'wb') as f:
-                f.write(finaldata)
+            return finaldata
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-        except UnicodeDecodeError as e:
-            toplbl = QtWidgets.QLabel('An error occured while trying to save this file. Please refer to the information below for more details.')
-
-            # This is a ridiculous way to do this, but it works...
-            exc_type, exc_value, tb = sys.exc_info()
-            class FileLike():
-                def __init__(*args, **kwargs):
-                    self = args[0]
-                    self.s = ''
-                def write(self, txt):
-                    self.s += txt
-            fl = FileLike()
-            traceback.print_exception(exc_type, exc_value, tb, file=fl)
-            btm = fl.s
-
-            txtedit = QtWidgets.QPlainTextEdit(btm)
-            txtedit.setReadOnly(True)
-
-            buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-
-            layout = QtWidgets.QVBoxLayout()
-            layout.addWidget(toplbl)
-            layout.addWidget(txtedit)
-            layout.addWidget(buttonBox)
-
-            dlg = QtWidgets.QDialog()
-            dlg.setLayout(layout)
-            dlg.setModal(True)
-            dlg.setMinimumWidth(384)
-            dlg.setWindowTitle('Error')
-            buttonBox.accepted.connect(dlg.accept)
-            dlg.exec_()
+        except Exception as e:
+            sel.ShowErrorBox('An error occured while trying to save this file. Please refer to the information below for more details.')
 
 
     def RenderGlyphsToTPL(self):
@@ -578,12 +416,12 @@ class Window(QtWidgets.QMainWindow):
         prog.setValue(0)
         prog.setAutoClose(True)
         prog.setWindowTitle('Saving Font')
-        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[self.tglp.type]
+        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[Font.tglp.type]
         prog.setLabelText('Saving the file (%s format)' % (strformat))
         prog.open()
 
-        imagenum = len(FontItems) // 64
-        imagenum += 1 if len(FontItems) % 64 else 0
+        imagenum = len(Font.glyphs) // 64
+        imagenum += 1 if len(Font.glyphs) % 64 else 0
 
         def handlePctUpdated():
             """
@@ -599,8 +437,8 @@ class Window(QtWidgets.QMainWindow):
         texs = []
         for texnum in range(imagenum):
 
-            glyphs = FontItems[texnum * 64: (texnum * 64) + 64]
-            glyphW, glyphH = self.tglp.cellWidth, self.tglp.cellHeight
+            glyphs = Font.glyphs[texnum * 64: (texnum * 64) + 64]
+            glyphW, glyphH = Font.tglp.cellWidth, Font.tglp.cellHeight
 
             # Put the glyphs together
             texImg = QtGui.QImage(glyphW * 8, glyphH * 8, QtGui.QImage.Format_ARGB32)
@@ -649,45 +487,20 @@ class Window(QtWidgets.QMainWindow):
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Create a bunch of glyphs, I guess.
 
-            charrange = dlg.charrange.text()
+            chars = dlg.charrange.text()
 
-            global Encoding, FontItems
-            Encoding = 'UTF-16BE'
-            FontItems = []
-
-
-            newFont = dlg.fontCombo.currentFont()
-            newFont.setPointSize(int(dlg.sizeCombo.currentText()))
+            qfont = dlg.fontCombo.currentFont()
+            qfont.setPointSize(int(dlg.sizeCombo.currentText()))
             if dlg.styleCombo.currentIndex() == 1:
-                newFont.setBold(True)
+                qfont.setBold(True)
             elif dlg.styleCombo.currentIndex() == 2:
-                newFont.setStyle(1)
+                qfont.setStyle(1)
             elif dlg.styleCombo.currentIndex() == 3:
-                newFont.setStyle(1)
-                newFont.setBold(True)
+                qfont.setStyle(1)
+                qfont.setBold(True)
 
-            fontMetrics = QtGui.QFontMetrics(newFont)
-
-            for glyph in charrange:
-                # make a pixmap
-                rect = fontMetrics.boundingRect(glyph)
-                tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format_ARGB32)
-                tex.fill(dlg.bg)
-                painter = QtGui.QPainter(tex)
-                painter.setPen(dlg.fg)
-                painter.setFont(newFont)
-                painter.drawText(0-fontMetrics.leftBearing(glyph), fontMetrics.ascent(), glyph)
-
-                painter.end()
-
-                newtex = QtGui.QPixmap.fromImage(tex)
-                # append a glyph to FontItems
-                FontItems.append(Glyph(newtex, ord(glyph), 0, fontMetrics.width(glyph), fontMetrics.width(glyph)))
-
-
-            self.rfnt = brfntHeader(0xFFFE, 0x0104, 0)
-            self.finf = FontInformation(1, fontMetrics.height() + fontMetrics.leading(), 0x20, fontMetrics.minLeftBearing(), fontMetrics.maxWidth(), fontMetrics.maxWidth(), Encoding, fontMetrics.height(), fontMetrics.maxWidth(), fontMetrics.ascent(), fontMetrics.descent())
-            self.tglp = TextureInformation(fontMetrics.maxWidth(), fontMetrics.height(), fontMetrics.ascent() + 1, fontMetrics.maxWidth(), 0, 5, 3, 5, 5, 0, 0)
+            global Font
+            Font = BRFNT.generate(qfont, chars, dlg.fg, dlg.bg)
 
             x = 0
             y = 0
@@ -695,7 +508,7 @@ class Window(QtWidgets.QMainWindow):
             self.brfntScene.clear()
             self.brfntScene.setSceneRect(0, 0, 5000, 5000)
 
-            for item in FontItems:
+            for item in Font.glyphs:
                 if i >= 30:
                     x = 0
                     y = y + item.pixmap.height()
@@ -706,7 +519,7 @@ class Window(QtWidgets.QMainWindow):
                 i += 1
 
             self.fontDock.updateFields(self)
-            self.view.updateDisplay(self.rfnt, self.finf, self.tglp)
+            self.view.updateDisplay()
             self.view.setScene(self.brfntScene)
             self.prevDock.updatePreview()
             self.view.columns = 1
@@ -802,7 +615,7 @@ class GenerateDialog(QtWidgets.QDialog):
     bg = Qt.white
 
     def __init__(self):
-        QtWidgets.QDialog.__init__(self)
+        super().__init__()
         self.setWindowTitle('Generate a Font')
 
         # Font Setting Groups
@@ -943,10 +756,10 @@ class Glyph(QtWidgets.QGraphicsItem):
     Class for a character glyph
     """
 
-    def __init__(self, pixmap, glyph=None, leftmargin=0, charwidth=0, fullwidth=0):
-        QtWidgets.QGraphicsPixmapItem.__init__(self)
+    def __init__(self, pixmap, char, leftmargin=0, charwidth=0, fullwidth=0):
+        super().__init__()
 
-        self.glyph = glyph
+        self.char = char
         self.leftmargin = leftmargin
         self.charwidth = charwidth
         self.fullwidth = fullwidth
@@ -954,40 +767,41 @@ class Glyph(QtWidgets.QGraphicsItem):
         self.boundingRect = QtCore.QRectF(0,0,pixmap.width(),pixmap.height())
         self.selectionRect = QtCore.QRectF(0,0,pixmap.width()-1,pixmap.height()-1)
 
-        buffer = struct.pack('>H', self.glyph)
-        self.EncodeChar = (struct.unpack('>2s', buffer))[0].decode(Encoding, 'replace')
-
-        if self.glyph is not None:
-            text = '<p>Character:</p><p><span style=\"font-size: 24pt;\">&#' + \
-                    str(ord(self.EncodeChar)) + \
-                    ';</span></p><p>Value: 0x' + \
-                    '%X' % self.glyph
-        else:
-            text = '<p>Character: <span style=\"font-size: 24pt;\">Unknown Glyph'
-
-
-        self.setToolTip(text)
         self.setFlag(self.ItemIsMovable, False)
         self.setFlag(self.ItemIsSelectable, True)
         self.setFlag(self.ItemIsFocusable, True)
 
 
-    def setGlyph(self, glyph):
-        self.glyph = glyph
+    def value(self, encoding):
+        """
+        Get the glyph's value in the given encoding
+        """
+        b = self.char.encode(encoding, 'replace')
+        if len(b) == 1: b = b'\0' + b
+        return struct.unpack_from('>H', b)
 
-    def setWidths(self, a, b, c):
-        self.leftmargin = a
-        self.charwidth = b
-        self.fullwidth = c
+
+    def updateToolTip(self, encoding):
+        """
+        Update the glyph's tooltip
+        """
+        if self.char is not None:
+            text = '<p>Character:</p><p><span style="font-size: 24pt;">&#' + \
+                    str(ord(self.char)) + \
+                    ';</span></p><p>Value: 0x' + \
+                    '%X' % self.value(encoding)
+        else:
+            text = '<p>Character: <span style="font-size: 24pt;">Unknown Glyph'
+
+
+        self.setToolTip(text)
+
 
     def boundingRect(self):
         """
         Required for Qt
         """
         return self.boundingRect
-
-    def setPixmap(self, pict):
-        self.pixmap = pict
 
 
     def contextMenuEvent(self, e):
@@ -1001,13 +815,14 @@ class Glyph(QtWidgets.QGraphicsItem):
         menu.addAction('Export...', self.handleExport)
         menu.exec_(e.screenPos())
 
+
     def handleExport(self):
         """
         Handle the pixmap being exported
         """
 
         # Get the name
-        fn = QtWidgets.QFileDialog.getSaveFileName(window, 'Choose a PNG file', '', 'PNG Image File (*.png);;All Files(*)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(window, 'Choose a PNG file', '', 'PNG image file (*.png);;All Files(*)')[0]
         if not fn: return
 
         # Save it
@@ -1020,7 +835,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         """
 
         # Get the name
-        fn = QtWidgets.QFileDialog.getOpenFileName(window, 'Choose a PNG file', '', 'PNG Image File (*.png);;All Files(*)')[0]
+        fn = QtWidgets.QFileDialog.getOpenFileName(window, 'Choose a PNG file', '', 'PNG image file (*.png);;All Files(*)')[0]
         if not fn: return
 
         # Open it
@@ -1055,10 +870,10 @@ def FindGlyph(char):
     Return a Glyph object for the string character, or None if none exists
     """
     default = None
-    for glyph in FontItems:
-        if glyph.EncodeChar == char:
+    for glyph in Font.glyphs:
+        if glyph.char == char:
             return glyph
-        elif ord(glyph.EncodeChar) == window.finf.defaultchar:
+        elif ord(glyph.char) == Font.finf.defaultchar:
             default = glyph
     return default
 
@@ -1074,7 +889,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     parent = None
 
     def __init__(self, parent):
-        QtWidgets.QDockWidget.__init__(self, parent)
+        super().__init__(parent)
 
         # Metrics Group
         self.defaultchar = QtWidgets.QLineEdit() # Default char for exceptions
@@ -1118,7 +933,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.baselineEdit = QtWidgets.QSpinBox()
         self.widthEdit = QtWidgets.QSpinBox()
         self.heightEdit = QtWidgets.QSpinBox()
-        self.edits = (self.fonttypeEdit, self.encodingEdit, self.formatEdit, self.defaultcharEdit, self.leftmarginEdit, self.charwidthEdit, self.fullwidthEdit, self.leadingEdit, self.ascentEdit, self.baselineEdit, self.widthEdit, self.heightEdit)
+        self.edits = [self.fonttypeEdit, self.encodingEdit, self.formatEdit, self.defaultcharEdit, self.leftmarginEdit, self.charwidthEdit, self.fullwidthEdit, self.leadingEdit, self.ascentEdit, self.baselineEdit, self.widthEdit, self.heightEdit]
 
         self.fonttypeEdit.currentIndexChanged.connect(lambda: self.boxChanged('combo', 'fonttype'))
         self.encodingEdit.currentIndexChanged.connect(lambda: self.boxChanged('combo', 'encoding'))
@@ -1161,18 +976,18 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         for e in self.edits: e.setEnabled(True)
 
-        self.fonttypeEdit.setCurrentIndex(self.typeList.index(str(parent.finf.fonttype)))
-        self.encodingEdit.setCurrentIndex(self.encodingList.index(Encoding))
-        self.formatEdit.setCurrentIndex(parent.tglp.type)
-        self.defaultcharEdit.setText(chr(parent.finf.defaultchar))
-        self.leftmarginEdit.setValue(parent.finf.leftmargin)
-        self.charwidthEdit.setValue(parent.finf.charwidth)
-        self.fullwidthEdit.setValue(parent.finf.fullwidth)
-        self.leadingEdit.setValue(parent.finf.leading)
-        self.ascentEdit.setValue(parent.finf.ascent)
-        self.baselineEdit.setValue(parent.tglp.baseLine)
-        self.widthEdit.setValue(parent.finf.width)
-        self.heightEdit.setValue(parent.finf.height)
+        self.fonttypeEdit.setCurrentIndex(self.typeList.index(str(Font.finf.fonttype)))
+        self.encodingEdit.setCurrentIndex(self.encodingList.index(Font.encoding))
+        self.formatEdit.setCurrentIndex(Font.tglp.type)
+        self.defaultcharEdit.setText(chr(Font.finf.defaultchar))
+        self.leftmarginEdit.setValue(Font.finf.leftmargin)
+        self.charwidthEdit.setValue(Font.finf.charwidth)
+        self.fullwidthEdit.setValue(Font.finf.fullwidth)
+        self.leadingEdit.setValue(Font.finf.leading)
+        self.ascentEdit.setValue(Font.finf.ascent)
+        self.baselineEdit.setValue(Font.tglp.baseLine)
+        self.widthEdit.setValue(Font.finf.width)
+        self.heightEdit.setValue(Font.finf.height)
         self.parent = parent
 
 
@@ -1181,23 +996,25 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         A box was changed
         """
         if self.parent is None: return
+        global Font
         if type == 'combo':
             if name == 'fonttype':
-                self.parent.finf.fonttype = self.fonttypeEdit.currentText()
+                Font.finf.fonttype = self.fonttypeEdit.currentText()
             elif name == 'encoding':
-                global Encoding
-                Encoding = self.encodingEdit.currentText()
+                Font.encoding = self.encodingEdit.currentText()
+                for g in Font.glyphs:
+                    g.updateToolTip(Font.encoding)
             elif name == 'format':
-                self.parent.tglp.type = self.formatEdit.currentIndex()
+                Font.type = self.formatEdit.currentIndex()
         elif type == 'line':
             if name == 'defaultchar':
-                self.parent.finf.defaultchar = ord(self.defaultcharEdit.text())
+                Font.finf.defaultchar = ord(self.defaultcharEdit.text())
         elif type == 'spin':
             if name in ('leftmargin', 'charwidth', 'fullwidth', 'leading', 'ascent', 'width', 'height'):
                 newval = eval('self.%sEdit.value()' % name)
-                setattr(self.parent.finf, name, newval)
+                setattr(Font.finf, name, newval)
             elif name == 'baseline':
-                self.parent.tglp.baseLine = self.baselineEdit.value()
+                Font.tglp.baseLine = self.baselineEdit.value()
 
         window.brfntScene.update()
         window.prevDock.updatePreview()
@@ -1209,9 +1026,9 @@ class CharMetricsDock(QtWidgets.QDockWidget):
     A dock widget that displays glyph metrics
     """
     def __init__(self, parent):
-        QtWidgets.QDockWidget.__init__(self, parent)
+        super().__init__(parent)
 
-        self.glyph = None
+        self.value = None
         self.leftmargin = 0
         self.charwidth = 0
         self.fullwidth = 0
@@ -1302,7 +1119,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         glyphs = window.brfntScene.selectedItems()
         if len(glyphs) != 1:
-            self.glyph = None
+            self.value = None
             self.glyphLabel.setText('')
             self.glyphNameLabel.setText('')
             self.glyphValueEdit.setValue(0)
@@ -1319,10 +1136,10 @@ class CharMetricsDock(QtWidgets.QDockWidget):
             self.copy.setEnabled(False)
         else:
             glyph = glyphs[0]
-            self.glyph = glyph
-            self.glyphLabel.setText(glyph.EncodeChar)
-            self.glyphNameLabel.setText(CharacterNames[ord(glyph.EncodeChar)])
-            self.glyphValueEdit.setValue(ord(glyph.EncodeChar))
+            self.value = glyph
+            self.glyphLabel.setText(glyph.char)
+            self.glyphNameLabel.setText(CharacterNames[ord(glyph.char)])
+            self.glyphValueEdit.setValue(ord(glyph.char))
             self.leftmarginEdit.setValue(glyph.leftmargin)
             self.charwidthEdit.setValue(glyph.charwidth)
             self.fullwidthEdit.setValue(glyph.fullwidth)
@@ -1339,58 +1156,58 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle changes to the glyph value line edit
         """
-        if self.glyph is None:
+        if self.value is None:
             self.glyphValueEdit.setValue(0)
             return
-        self.glyph.EncodeChar = chr(self.glyphValueEdit.value())
-        self.glyph.update()
+        self.value.char = chr(self.glyphValueEdit.value())
+        self.value.update()
         window.prevDock.updatePreview()
-        self.glyphLabel.setText(self.glyph.EncodeChar)
+        self.glyphLabel.setText(self.value.char)
 
-        name = CharacterNames[ord(self.glyph.EncodeChar)]
+        name = CharacterNames[ord(self.value.char)]
         self.glyphNameLabel.setText(name)
 
     def handleLeftmarginEditChanged(self):
         """
         Handle changes to the left margin line edit
         """
-        if self.glyph is None:
+        if self.value is None:
             self.leftmarginEdit.setValue(0)
             return
-        self.glyph.leftmargin = self.leftmarginEdit.value()
-        self.glyph.update()
+        self.value.leftmargin = self.leftmarginEdit.value()
+        self.value.update()
         window.prevDock.updatePreview()
 
     def handleCharwidthEditChanged(self):
         """
         Handle changes to the char width line edit
         """
-        if self.glyph is None:
+        if self.value is None:
             self.charwidthEdit.setValue(0)
             return
-        self.glyph.charwidth = self.charwidthEdit.value()
-        self.glyph.update()
+        self.value.charwidth = self.charwidthEdit.value()
+        self.value.update()
         window.prevDock.updatePreview()
 
     def handleFullwidthEditChanged(self):
         """
         Handle changes to the full width line edit
         """
-        if self.glyph is None:
+        if self.value is None:
             self.fullwidthEdit.setValue(0)
             return
-        self.glyph.fullwidth = self.fullwidthEdit.value()
-        self.glyph.update()
+        self.value.fullwidth = self.fullwidthEdit.value()
+        self.value.update()
         window.prevDock.updatePreview()
 
     def handleMove(self, dir):
         """
         Handle either of the Move buttons being clicked
         """
-        global FontItems
-        current = FontItems.index(self.glyph)
+        global Font
+        current = Font.glyphs.index(self.value)
         new = current + 1 if dir == 'R' else current - 1
-        FontItems[current], FontItems[new] = FontItems[new], FontItems[current]
+        Font.glyphs[current], Font.glyphs[new] = Font.glyphs[new], Font.glyphs[current]
 
         window.view.updateLayout(True)
         window.brfntScene.update()
@@ -1400,11 +1217,11 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle the Delete button being clicked
         """
-        global FontItems
-        FontItems.remove(self.glyph)
-        window.brfntScene.removeItem(self.glyph)
+        global Font
+        Font.glyphs.remove(self.value)
+        window.brfntScene.removeItem(self.value)
 
-        del self.glyph
+        del self.value
         window.view.updateLayout(True)
         window.brfntScene.update()
         window.prevDock.updatePreview()
@@ -1413,14 +1230,15 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle the Copy button being clicked
         """
-        global FontItems
-        c = self.glyph # c: "current"
-        new = Glyph(c.pixmap, c.glyph, c.leftmargin, c.charwidth, c.fullwidth)
+        global Font
+        c = self.value # c: "current"
+        new = Glyph(c.pixmap, c.value, c.leftmargin, c.charwidth, c.fullwidth)
+        new.updateToolTip(Font.encoding)
         window.brfntScene.addItem(new)
         c.setSelected(False)
         new.setSelected(True)
 
-        FontItems.insert(FontItems.index(c)+1, new)
+        Font.glyphs.insert(Font.glyphs.index(c)+1, new)
 
         window.view.updateLayout(True)
         window.brfntScene.update()
@@ -1433,7 +1251,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
     Dock that lets you type some text and see a preview of it in the font
     """
     def __init__(self, parent):
-        QtWidgets.QDockWidget.__init__(self, parent)
+        super().__init__(parent)
 
         self.textEdit = QtWidgets.QPlainTextEdit()
         self.textEdit.setEnabled(False)
@@ -1466,7 +1284,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         """
         Redraw the preview image
         """
-        if Encoding is None:
+        if Font.encoding is None:
             self.textEdit.setEnabled(False)
             self.prevWidget.setText('')
             return
@@ -1490,7 +1308,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
 
             if linewidth > width: width = linewidth
 
-        height = window.finf.height * (txt.count('\n') + 1)
+        height = Font.finf.height * (txt.count('\n') + 1)
 
         # Make the pixmap
         pix = QtGui.QPixmap(width + 4, height + 4)
@@ -1500,7 +1318,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         # Draw the chars to the pixmap
         i = 0
         for line in txt.split('\n'):
-            y = window.finf.leading * i
+            y = Font.finf.leading * i
             x = 0
             for char in line:
                 glyph = FindGlyph(char)
@@ -1520,7 +1338,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
 class HexSpinBox(QtWidgets.QSpinBox):
     class HexValidator(QtGui.QValidator):
         def __init__(self, min, max):
-            QtGui.QValidator.__init__(self)
+            super().__init__()
             self.valid = set('0123456789abcdef')
             self.min = min
             self.max = max
@@ -1539,7 +1357,7 @@ class HexSpinBox(QtWidgets.QSpinBox):
 
 
     def __init__(self, format='%04X', *args):
-        QtWidgets.QSpinBox.__init__(self, *args)
+        super().__init__(*args)
         self.validator = self.HexValidator(self.minimum(), self.maximum())
         self.validator.format = format
 
@@ -1579,7 +1397,7 @@ class ViewWidget(QtWidgets.QGraphicsView):
     columns = 0
 
     def __init__(self, parent=None):
-        super(ViewWidget, self).__init__(parent)
+        super().__init__(parent)
 
         self.Images = []
         self.drawLeading = False
@@ -1594,10 +1412,7 @@ class ViewWidget(QtWidgets.QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
 
-    def updateDisplay(self, rfnt, finf, tglp):
-        self.rfnt = rfnt
-        self.finf = finf
-        self.tglp = tglp
+    def updateDisplay(self):
         self.update()
 
 
@@ -1627,28 +1442,27 @@ class ViewWidget(QtWidgets.QGraphicsView):
 
 
     def updateLayout(self, force=False):
-        if not hasattr(self, 'tglp'): return
-        if self.tglp is None: return
+        if Font is None: return
 
-        cols = int((1 / (self.zoom / 100)) * self.viewport().width() / self.tglp.cellWidth)
+        cols = int((1 / (self.zoom / 100)) * self.viewport().width() / Font.tglp.cellWidth)
         if cols < 1: cols = 1
         if cols == self.columns and not force: return
 
         self.columns = cols
 
-        for i in range(len(FontItems)):
-            itm = FontItems[i]
-            x = self.tglp.cellWidth * (i % cols)
-            y = self.tglp.cellHeight * int(i / cols)
+        for i in range(len(Font.glyphs)):
+            itm = Font.glyphs[i]
+            x = Font.tglp.cellWidth * (i % cols)
+            y = Font.tglp.cellHeight * int(i / cols)
             itm.setPos(x, y)
 
-        self.scene().setSceneRect(0, 0, self.tglp.cellWidth * cols, self.tglp.cellHeight * (1+int(len(FontItems) / cols)))
+        self.scene().setSceneRect(0, 0, Font.tglp.cellWidth * cols, Font.tglp.cellHeight * (1+int(len(Font.glyphs) / cols)))
 
 
     def drawForeground(self, painter, rect):
 
         # Calculate the # of rows, and round up
-        rows = len(FontItems) / self.columns
+        rows = len(Font.glyphs) / self.columns
         if float(int(rows)) == rows: rows = int(rows)
         else: rows = int(rows) + 1
         # Calculate columns
@@ -1664,39 +1478,217 @@ class ViewWidget(QtWidgets.QGraphicsView):
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 0, 0, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         (i * self.tglp.cellHeight) + self.finf.leading,
-                         self.tglp.cellWidth * cols, (i * self.tglp.cellHeight) + self.finf.leading)
+                         (i * Font.tglp.cellHeight) + Font.finf.leading,
+                         Font.tglp.cellWidth * cols, (i * Font.tglp.cellHeight) + Font.finf.leading)
 
         # Ascent
         if self.drawAscent:
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(0, 255, 0, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         ((i+1) * self.tglp.cellHeight) - self.finf.ascent,
-                         self.tglp.cellWidth * cols, ((i+1) * self.tglp.cellHeight) - self.finf.ascent)
+                         ((i+1) * Font.tglp.cellHeight) - Font.finf.ascent,
+                         Font.tglp.cellWidth * cols, ((i+1) * Font.tglp.cellHeight) - Font.finf.ascent)
 
         # Baseline
         if self.drawBaseline:
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(0, 0, 255, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         (i * self.tglp.cellHeight) + self.tglp.baseLine,
-                         self.tglp.cellWidth * cols, (i * self.tglp.cellHeight) + self.tglp.baseLine)
+                         (i * Font.tglp.cellHeight) + Font.tglp.baseLine,
+                         Font.tglp.cellWidth * cols, (i * Font.tglp.cellHeight) + Font.tglp.baseLine)
 
         # Widths
         if self.drawWidths:
-            for i, fi in enumerate(FontItems):
+            for i, fi in enumerate(Font.glyphs):
                 j = int(i % cols)
-                x1 = j * self.tglp.cellWidth
+                x1 = j * Font.tglp.cellWidth
                 x2 = x1 + fi.charwidth + 2
-                tooWide = x1 + self.tglp.cellWidth < x2
+                tooWide = x1 + Font.tglp.cellWidth < x2
 
                 painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 255, 0, 255), 2))
-                drawLine(x1, (int(i/cols) * self.tglp.cellHeight) + 1, x1, (int(i/cols + 1) * self.tglp.cellHeight) - 1)
+                drawLine(x1, (int(i/cols) * Font.tglp.cellHeight) + 1, x1, (int(i/cols + 1) * Font.tglp.cellHeight) - 1)
                 if tooWide: continue
                 painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 255, 0, 127), 2))
-                drawLine(x2, (int(i/cols) * self.tglp.cellHeight) + 1, x2, (int(i/cols + 1) * self.tglp.cellHeight) - 1)
+                drawLine(x2, (int(i/cols) * Font.tglp.cellHeight) + 1, x2, (int(i/cols + 1) * Font.tglp.cellHeight) - 1)
 
+
+
+class BRFNT:
+    """
+    Class that represents a BRFNT file.
+    """
+    encoding = None
+
+    def __init__(self, data=None):
+        if data is not None:
+            self._initFromData(data)
+
+
+    def _initFromData(self, tmpf):
+        """
+        Load BRFNT data
+        """
+
+        RFNT = struct.unpack_from('>IHHIHH', tmpf[0:16])
+        FINF = struct.unpack_from('>IIBbHbBbBIIIBBBB', tmpf[16:48])
+        TGLP = struct.unpack_from('>IIBBbBIHHHHHHI', tmpf[48:96])
+        CWDH = struct.unpack_from('>3Ixxxx', tmpf, FINF[10] - 8)
+        CWDH2 = []
+        CMAP = []
+
+
+        position = FINF[10] + 8
+        for i in range(CWDH[2]+1):
+            Entry = struct.unpack_from('>bBb', tmpf, position)
+            position += 3
+            CWDH2.append((Entry[0], Entry[1], Entry[2]))
+
+        position = FINF[11]
+        while position != 0:
+            Entry = struct.unpack_from('>HHHxxIH', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
+            if Entry[2] == 0:
+                index = Entry[4]
+                for glyph in range(Entry[0], Entry[1] + 1):
+                    CMAP.append((index, glyph))
+                    index += 1
+
+            elif Entry[2] == 1:
+                indexdat = tmpf[(position+12) : (position+12+((Entry[1]-Entry[0]+1)*2))]
+                entries = struct.unpack('>' + str(int(len(indexdat)/2)) + 'H', indexdat)
+                for i, glyph in enumerate(range(Entry[0], Entry[1]+1)):
+                    index = entries[i]
+                    if index == 0xFFFF:
+                        pass
+                    else:
+                        CMAP.append((index, glyph))
+
+            elif Entry[2] == 2:
+                entries = struct.unpack_from('>' + str(Entry[4]*2) + 'H', tmpf, position+0xE)
+                for i in range(Entry[4]):
+                    CMAP.append((entries[i * 2 + 1], entries[i * 2]))
+
+            else:
+                raise ValueError('Unknown CMAP type!')
+                break
+
+            position = Entry[3]
+
+
+        self.rfnt = brfntHeader(RFNT[1], RFNT[2], RFNT[5])
+        self.finf = FontInformation(FINF[2], FINF[3], FINF[4], FINF[5], FINF[6], FINF[7], FINF[8], FINF[12], FINF[13], FINF[14], FINF[15])
+        self.tglp = TextureInformation(TGLP[2], TGLP[3], TGLP[4], TGLP[5], TGLP[6], TGLP[7], TGLP[8], TGLP[9], TGLP[10], TGLP[11], TGLP[12])
+
+        self.encoding = {
+            1: 'UTF-16BE',
+            2: 'SJIS',
+            3: 'windows-1252',
+            4: 'hex',
+        }.get(self.finf.encoding, 'UTF-8')
+
+
+        TPLDat = tmpf[96:(TGLP[1] + 48)]
+        w = self.tglp.width
+        h = self.tglp.height
+
+
+        SingleTex = []
+        Images = []
+        length = self.tglp.textureSize
+        offset = 0
+        charsPerTex = self.tglp.column * self.tglp.row
+
+        for tex in range(self.tglp.amount):
+            SingleTex.append(struct.unpack('>' + str(length) + 'B', TPLDat[offset:length+offset]))
+            offset += length
+
+        prog = QtWidgets.QProgressDialog(window)
+        prog.setRange(0, 100)
+        prog.setValue(0)
+        prog.setAutoClose(True)
+        prog.setWindowTitle('Loading Font')
+        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[self.tglp.type]
+        prog.setLabelText('Loading font (%s format)' % (strformat,))
+        prog.open()
+
+        def handlePctUpdated():
+            """
+            Called when a Decoder object updates its percentage
+            """
+            newpct = decoder.progress
+            totalPct = (SingleTex.index(tex) / len(SingleTex)) + (newpct / len(SingleTex))
+            totalPct *= 100
+            prog.setValue(totalPct)
+            prog.update()
+
+        for tex in SingleTex:
+
+            decoder = TPLLib.decoder(self.tglp.type)
+            decoder = decoder(tex, w, h, handlePctUpdated)
+            newdata = decoder.run()
+            dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
+
+            y = 0
+            for a in range(self.tglp.row):
+                x = 0
+                for b in range(self.tglp.column):
+                    Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.tglp.cellWidth, self.tglp.cellHeight)))
+                    x += self.tglp.cellWidth
+                y += self.tglp.cellHeight
+
+        prog.setValue(100)
+
+
+
+
+        CMAP.sort(key=lambda x: x[0])
+
+        for i in range(len(CMAP), len(Images)):
+            CMAP.append((0xFFFF,0xFFFF))
+
+        for i in range(len(CWDH2), len(Images)):
+            CWDH2.append((0xFF,0xFF,0xFF))
+
+
+        self.glyphs = []
+        for i, tex in enumerate(Images):
+            val = CMAP[i][1]
+            if val == 0xFFFF: continue
+            char = struct.pack('>H', val).decode(self.encoding, 'replace')
+            g = Glyph(tex, char, CWDH2[i][0], CWDH2[i][1], CWDH2[i][2])
+            g.updateToolTip(self.encoding)
+            self.glyphs.append(g)
+
+
+    @classmethod
+    def generate(cls, qfont, chars, fgColor, bgColor):
+        self = cls()
+
+        self.encoding = 'UTF-16BE'
+        self.glyphs = []
+
+        fontMetrics = QtGui.QFontMetrics(qfont)
+
+        for c in chars:
+            # make a pixmap
+            rect = fontMetrics.boundingRect(c)
+            tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format_ARGB32)
+            tex.fill(bgColor)
+            painter = QtGui.QPainter(tex)
+            painter.setPen(fgColor)
+            painter.setFont(qfont)
+            painter.drawText(-fontMetrics.leftBearing(c), fontMetrics.ascent(), c)
+
+            painter.end()
+
+            newtex = QtGui.QPixmap.fromImage(tex)
+            self.glyphs.append(Glyph(newtex, c, 0, fontMetrics.width(c), fontMetrics.width(c)))
+
+
+        self.rfnt = brfntHeader(0xFFFE, 0x0104, 0)
+        self.finf = FontInformation(1, fontMetrics.height() + fontMetrics.leading(), 0x20, fontMetrics.minLeftBearing(), fontMetrics.maxWidth(), fontMetrics.maxWidth(), self.encoding, fontMetrics.height(), fontMetrics.maxWidth(), fontMetrics.ascent(), fontMetrics.descent())
+        self.tglp = TextureInformation(fontMetrics.maxWidth(), fontMetrics.height(), fontMetrics.ascent() + 1, fontMetrics.maxWidth(), 0, 5, 3, 5, 5, 0, 0)
+
+        return self
 
 
 
@@ -1710,16 +1702,16 @@ def reconfigureBrfnt():
     # headers.
 
     # TGLP
-    tglp = window.tglp
+    tglp = Font.tglp
     tglp.row, tglp.column = 8, 8
-    tglp.amount = int(len(FontItems) / 64)
-    if float(int(len(FontItems) / 64)) != len(FontItems) / 64:
-        tglp.amount = int(len(FontItems) / 64) + 1
-    print(len(FontItems))
+    tglp.amount = int(len(Font.glyphs) / 64)
+    if float(int(len(Font.glyphs) / 64)) != len(Font.glyphs) / 64:
+        tglp.amount = int(len(Font.glyphs) / 64) + 1
+    print(len(Font.glyphs))
     print(tglp.amount)
 
     # RFNT
-    print(window.rfnt.chunkcount)
+    print(Font.rfnt.chunkcount)
     # Chunkcount is unrelated to the # of tex's?
     # It's used NOWHERE in the opening algorithm...
 
