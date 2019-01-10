@@ -298,8 +298,8 @@ class Window(QtWidgets.QMainWindow):
             self.brfntScene.setSceneRect(
                 0,
                 0,
-                Font.tglp.cellWidth * 30,
-                Font.tglp.cellHeight * (((Font.tglp.row * Font.tglp.column * Font.tglp.amount) / 30) + 1))
+                Font.cellWidth * 30,
+                Font.cellHeight * (((Font.charsPerRow * Font.charsPerColumn * Font.numTexs) / 30) + 1))
 
             x = 0
             y = 0
@@ -361,47 +361,8 @@ class Window(QtWidgets.QMainWindow):
         # Display a warning
         QtWidgets.QMessageBox.warning(self, 'Save', 'Saving is not yet completed. This save operation will be attempted but no guarantees.')
 
-        # Reconfigure the BRFNT
-        reconfigureBrfnt()
-
         try:
-
-            # Skip RFNT until the end
-
-            # Render the glyphs to TPL
-            texs = self.RenderGlyphsToTPL()
-
-            # Pack FINF
-            # FINFbin = struct.pack('>IIBbHbBbBIIIBBBB', tmpf[16:48])
-
-            # # Pack TGLP
-            # TGLPbin = struct.pack('>IIBBbBIHHHHHHI', tmpf[48:96])
-
-            # # Pack CWDH
-            # CWDHbin = struct.pack('>3Ixxxx', tmpf, FINF[10] - 8)
-
-            # # Pack CWDH2
-            # CWDH2 = []
-
-            # # Pack CMAP
-            # CMAP = []
-
-            # Pack RFNT
-            RFNTdata = (
-                0x52464E54, # b'RFNT'
-                self.rfnt.versionmajor,
-                self.rfnt.versionminor,
-                0, # length of entire font - figure out how to put this together later?
-                0x10,
-                self.rfnt.chunkcount,
-                )
-            RFNTbin = struct.pack('>IHHIHH', *RFNTdata)
-
-            # Put everything together
-            finaldata = bytes()
-
-            # Save data
-            return finaldata
+            return Font.save()
 
         except Exception as e:
             sel.ShowErrorBox('An error occured while trying to save this file. Please refer to the information below for more details.')
@@ -416,7 +377,7 @@ class Window(QtWidgets.QMainWindow):
         prog.setValue(0)
         prog.setAutoClose(True)
         prog.setWindowTitle('Saving Font')
-        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[Font.tglp.type]
+        strformat = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR'][Font.texFormat]
         prog.setLabelText('Saving the file (%s format)' % (strformat))
         prog.open()
 
@@ -438,7 +399,7 @@ class Window(QtWidgets.QMainWindow):
         for texnum in range(imagenum):
 
             glyphs = Font.glyphs[texnum * 64: (texnum * 64) + 64]
-            glyphW, glyphH = Font.tglp.cellWidth, Font.tglp.cellHeight
+            glyphW, glyphH = Font.cellWidth, Font.cellHeight
 
             # Put the glyphs together
             texImg = QtGui.QImage(glyphW * 8, glyphH * 8, QtGui.QImage.Format_ARGB32)
@@ -873,7 +834,7 @@ def FindGlyph(char):
     for glyph in Font.glyphs:
         if glyph.char == char:
             return glyph
-        elif ord(glyph.char) == Font.finf.defaultchar:
+        elif ord(glyph.char) == Font.defaultchar:
             default = glyph
     return default
 
@@ -976,18 +937,18 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         for e in self.edits: e.setEnabled(True)
 
-        self.fonttypeEdit.setCurrentIndex(self.typeList.index(str(Font.finf.fonttype)))
+        self.fonttypeEdit.setCurrentIndex(self.typeList.index(str(Font.fonttype)))
         self.encodingEdit.setCurrentIndex(self.encodingList.index(Font.encoding))
-        self.formatEdit.setCurrentIndex(Font.tglp.type)
-        self.defaultcharEdit.setText(chr(Font.finf.defaultchar))
-        self.leftmarginEdit.setValue(Font.finf.leftmargin)
-        self.charwidthEdit.setValue(Font.finf.charwidth)
-        self.fullwidthEdit.setValue(Font.finf.fullwidth)
-        self.leadingEdit.setValue(Font.finf.leading)
-        self.ascentEdit.setValue(Font.finf.ascent)
-        self.baselineEdit.setValue(Font.tglp.baseLine)
-        self.widthEdit.setValue(Font.finf.width)
-        self.heightEdit.setValue(Font.finf.height)
+        self.formatEdit.setCurrentIndex(Font.texFormat)
+        self.defaultcharEdit.setText(chr(Font.defaultchar))
+        self.leftmarginEdit.setValue(Font.leftmargin)
+        self.charwidthEdit.setValue(Font.charwidth)
+        self.fullwidthEdit.setValue(Font.fullwidth)
+        self.leadingEdit.setValue(Font.leading)
+        self.ascentEdit.setValue(Font.ascent)
+        self.baselineEdit.setValue(Font.baseLine)
+        self.widthEdit.setValue(Font.width)
+        self.heightEdit.setValue(Font.height)
         self.parent = parent
 
 
@@ -996,10 +957,9 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         A box was changed
         """
         if self.parent is None: return
-        global Font
         if type == 'combo':
             if name == 'fonttype':
-                Font.finf.fonttype = self.fonttypeEdit.currentText()
+                Font.fonttype = self.fonttypeEdit.currentText()
             elif name == 'encoding':
                 Font.encoding = self.encodingEdit.currentText()
                 for g in Font.glyphs:
@@ -1008,13 +968,13 @@ class FontMetricsDock(QtWidgets.QDockWidget):
                 Font.type = self.formatEdit.currentIndex()
         elif type == 'line':
             if name == 'defaultchar':
-                Font.finf.defaultchar = ord(self.defaultcharEdit.text())
+                Font.defaultchar = ord(self.defaultcharEdit.text())
         elif type == 'spin':
             if name in ('leftmargin', 'charwidth', 'fullwidth', 'leading', 'ascent', 'width', 'height'):
                 newval = eval('self.%sEdit.value()' % name)
-                setattr(Font.finf, name, newval)
+                setattr(Font, name, newval)
             elif name == 'baseline':
-                Font.tglp.baseLine = self.baselineEdit.value()
+                Font.baseLine = self.baselineEdit.value()
 
         window.brfntScene.update()
         window.prevDock.updatePreview()
@@ -1156,9 +1116,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle changes to the glyph value line edit
         """
-        if self.value is None:
-            self.glyphValueEdit.setValue(0)
-            return
+        if self.value is None: return
         self.value.char = chr(self.glyphValueEdit.value())
         self.value.update()
         window.prevDock.updatePreview()
@@ -1171,9 +1129,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle changes to the left margin line edit
         """
-        if self.value is None:
-            self.leftmarginEdit.setValue(0)
-            return
+        if self.value is None: return
         self.value.leftmargin = self.leftmarginEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
@@ -1182,9 +1138,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle changes to the char width line edit
         """
-        if self.value is None:
-            self.charwidthEdit.setValue(0)
-            return
+        if self.value is None: return
         self.value.charwidth = self.charwidthEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
@@ -1193,9 +1147,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle changes to the full width line edit
         """
-        if self.value is None:
-            self.fullwidthEdit.setValue(0)
-            return
+        if self.value is None: return
         self.value.fullwidth = self.fullwidthEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
@@ -1204,7 +1156,6 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle either of the Move buttons being clicked
         """
-        global Font
         current = Font.glyphs.index(self.value)
         new = current + 1 if dir == 'R' else current - 1
         Font.glyphs[current], Font.glyphs[new] = Font.glyphs[new], Font.glyphs[current]
@@ -1217,7 +1168,6 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle the Delete button being clicked
         """
-        global Font
         Font.glyphs.remove(self.value)
         window.brfntScene.removeItem(self.value)
 
@@ -1230,7 +1180,6 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Handle the Copy button being clicked
         """
-        global Font
         c = self.value # c: "current"
         new = Glyph(c.pixmap, c.value, c.leftmargin, c.charwidth, c.fullwidth)
         new.updateToolTip(Font.encoding)
@@ -1308,7 +1257,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
 
             if linewidth > width: width = linewidth
 
-        height = Font.finf.height * (txt.count('\n') + 1)
+        height = Font.height * (txt.count('\n') + 1)
 
         # Make the pixmap
         pix = QtGui.QPixmap(width + 4, height + 4)
@@ -1318,7 +1267,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         # Draw the chars to the pixmap
         i = 0
         for line in txt.split('\n'):
-            y = Font.finf.leading * i
+            y = Font.leading * i
             x = 0
             for char in line:
                 glyph = FindGlyph(char)
@@ -1444,7 +1393,7 @@ class ViewWidget(QtWidgets.QGraphicsView):
     def updateLayout(self, force=False):
         if Font is None: return
 
-        cols = int((1 / (self.zoom / 100)) * self.viewport().width() / Font.tglp.cellWidth)
+        cols = int((1 / (self.zoom / 100)) * self.viewport().width() / Font.cellWidth)
         if cols < 1: cols = 1
         if cols == self.columns and not force: return
 
@@ -1452,11 +1401,11 @@ class ViewWidget(QtWidgets.QGraphicsView):
 
         for i in range(len(Font.glyphs)):
             itm = Font.glyphs[i]
-            x = Font.tglp.cellWidth * (i % cols)
-            y = Font.tglp.cellHeight * int(i / cols)
+            x = Font.cellWidth * (i % cols)
+            y = Font.cellHeight * int(i / cols)
             itm.setPos(x, y)
 
-        self.scene().setSceneRect(0, 0, Font.tglp.cellWidth * cols, Font.tglp.cellHeight * (1+int(len(Font.glyphs) / cols)))
+        self.scene().setSceneRect(0, 0, Font.cellWidth * cols, Font.cellHeight * (1+int(len(Font.glyphs) / cols)))
 
 
     def drawForeground(self, painter, rect):
@@ -1478,38 +1427,38 @@ class ViewWidget(QtWidgets.QGraphicsView):
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 0, 0, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         (i * Font.tglp.cellHeight) + Font.finf.leading,
-                         Font.tglp.cellWidth * cols, (i * Font.tglp.cellHeight) + Font.finf.leading)
+                         (i * Font.cellHeight) + Font.leading,
+                         Font.cellWidth * cols, (i * Font.cellHeight) + Font.leading)
 
         # Ascent
         if self.drawAscent:
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(0, 255, 0, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         ((i+1) * Font.tglp.cellHeight) - Font.finf.ascent,
-                         Font.tglp.cellWidth * cols, ((i+1) * Font.tglp.cellHeight) - Font.finf.ascent)
+                         ((i+1) * Font.cellHeight) - Font.ascent,
+                         Font.cellWidth * cols, ((i+1) * Font.cellHeight) - Font.ascent)
 
         # Baseline
         if self.drawBaseline:
             painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(0, 0, 255, 255), 2))
             for i in range(rows):
                 drawLine(0,
-                         (i * Font.tglp.cellHeight) + Font.tglp.baseLine,
-                         Font.tglp.cellWidth * cols, (i * Font.tglp.cellHeight) + Font.tglp.baseLine)
+                         (i * Font.cellHeight) + Font.baseLine,
+                         Font.cellWidth * cols, (i * Font.cellHeight) + Font.baseLine)
 
         # Widths
         if self.drawWidths:
             for i, fi in enumerate(Font.glyphs):
                 j = int(i % cols)
-                x1 = j * Font.tglp.cellWidth
+                x1 = j * Font.cellWidth
                 x2 = x1 + fi.charwidth + 2
-                tooWide = x1 + Font.tglp.cellWidth < x2
+                tooWide = x1 + Font.cellWidth < x2
 
                 painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 255, 0, 255), 2))
-                drawLine(x1, (int(i/cols) * Font.tglp.cellHeight) + 1, x1, (int(i/cols + 1) * Font.tglp.cellHeight) - 1)
+                drawLine(x1, (int(i/cols) * Font.cellHeight) + 1, x1, (int(i/cols + 1) * Font.cellHeight) - 1)
                 if tooWide: continue
                 painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 255, 0, 127), 2))
-                drawLine(x2, (int(i/cols) * Font.tglp.cellHeight) + 1, x2, (int(i/cols + 1) * Font.tglp.cellHeight) - 1)
+                drawLine(x2, (int(i/cols) * Font.cellHeight) + 1, x2, (int(i/cols + 1) * Font.cellHeight) - 1)
 
 
 
@@ -1574,30 +1523,52 @@ class BRFNT:
             position = Entry[3]
 
 
-        self.rfnt = brfntHeader(RFNT[1], RFNT[2], RFNT[5])
-        self.finf = FontInformation(FINF[2], FINF[3], FINF[4], FINF[5], FINF[6], FINF[7], FINF[8], FINF[12], FINF[13], FINF[14], FINF[15])
-        self.tglp = TextureInformation(TGLP[2], TGLP[3], TGLP[4], TGLP[5], TGLP[6], TGLP[7], TGLP[8], TGLP[9], TGLP[10], TGLP[11], TGLP[12])
+        self.rfntVersionMajor = RFNT[1]      # Major Font Version (0xFFFE)
+        self.rfntVersionMinor = RFNT[2]      # Minor Font Version (0x0104)
 
+        self.fonttype = FINF[2]                 #
+        self.leading = FINF[3] + 1              # http://en.wikipedia.org/wiki/Leading
+        self.defaultchar = FINF[4]              # Default char for exceptions
+        self.leftmargin = FINF[5]               #
+        self.charwidth = FINF[6] + 1            #
+        self.fullwidth = FINF[7] + 1            #
         self.encoding = {
+            0: 'UTF-8',
             1: 'UTF-16BE',
             2: 'SJIS',
             3: 'windows-1252',
-            4: 'hex',
-        }.get(self.finf.encoding, 'UTF-8')
+            4: 'hex', # COUNT
+        }.get(FINF[8], 'UTF-8')
+        self.height = FINF[12] + 1              #
+        self.width = FINF[13] + 1               #
+        self.ascent = FINF[14]                  #
+        self.descent = FINF[15]                 #
+
+        self.cellWidth = TGLP[2] + 1            # Font Width (0 base)
+        self.cellHeight = TGLP[3] + 1           # Font Height (0 base)
+        self.baseLine = TGLP[4] + 1             # Position of baseline from top (0 base)
+        self.maxCharWidth = TGLP[5] + 1         # Maximum width of a single character (0 base)
+        self.textureSize = TGLP[6]              # Length of texture in bytes
+        self.numTexs = TGLP[7]                  # Number of textures in the TGLP
+        self.texFormat = TGLP[8]                # TPL format
+        self.charsPerColumn = TGLP[9]           # Number of characters per column
+        self.charsPerRow = TGLP[10]             # Number of characters per row
+        self.texWidth = TGLP[11]                # Width of a texture
+        self.texHeight = TGLP[12]               # Height of a texture
 
 
         TPLDat = tmpf[96:(TGLP[1] + 48)]
-        w = self.tglp.width
-        h = self.tglp.height
+        w = self.texWidth
+        h = self.texHeight
 
 
         SingleTex = []
         Images = []
-        length = self.tglp.textureSize
+        length = self.textureSize
         offset = 0
-        charsPerTex = self.tglp.column * self.tglp.row
+        charsPerTex = self.charsPerColumn * self.charsPerRow
 
-        for tex in range(self.tglp.amount):
+        for tex in range(self.numTexs):
             SingleTex.append(struct.unpack('>' + str(length) + 'B', TPLDat[offset:length+offset]))
             offset += length
 
@@ -1606,7 +1577,7 @@ class BRFNT:
         prog.setValue(0)
         prog.setAutoClose(True)
         prog.setWindowTitle('Loading Font')
-        strformat = ('I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR')[self.tglp.type]
+        strformat = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR'][self.texFormat]
         prog.setLabelText('Loading font (%s format)' % (strformat,))
         prog.open()
 
@@ -1622,18 +1593,18 @@ class BRFNT:
 
         for tex in SingleTex:
 
-            decoder = TPLLib.decoder(self.tglp.type)
+            decoder = TPLLib.decoder(self.texFormat)
             decoder = decoder(tex, w, h, handlePctUpdated)
             newdata = decoder.run()
             dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
 
             y = 0
-            for a in range(self.tglp.row):
+            for a in range(self.charsPerRow):
                 x = 0
-                for b in range(self.tglp.column):
-                    Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.tglp.cellWidth, self.tglp.cellHeight)))
-                    x += self.tglp.cellWidth
-                y += self.tglp.cellHeight
+                for b in range(self.charsPerColumn):
+                    Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.cellWidth, self.cellHeight)))
+                    x += self.cellWidth
+                y += self.cellHeight
 
         prog.setValue(100)
 
@@ -1684,91 +1655,98 @@ class BRFNT:
             self.glyphs.append(Glyph(newtex, c, 0, fontMetrics.width(c), fontMetrics.width(c)))
 
 
-        self.rfnt = brfntHeader(0xFFFE, 0x0104, 0)
-        self.finf = FontInformation(1, fontMetrics.height() + fontMetrics.leading(), 0x20, fontMetrics.minLeftBearing(), fontMetrics.maxWidth(), fontMetrics.maxWidth(), self.encoding, fontMetrics.height(), fontMetrics.maxWidth(), fontMetrics.ascent(), fontMetrics.descent())
-        self.tglp = TextureInformation(fontMetrics.maxWidth(), fontMetrics.height(), fontMetrics.ascent() + 1, fontMetrics.maxWidth(), 0, 5, 3, 5, 5, 0, 0)
+        self.rfntVersionMajor = 0xFFFE
+        self.rfntVersionMinor = 0x0104
+
+        self.fonttype = 1
+        self.leading = fontMetrics.height() + fontMetrics.leading() + 1
+        self.defaultchar = 0x20 # " "
+        self.leftmargin = fontMetrics.minLeftBearing()
+        self.charwidth = fontMetrics.maxWidth() + 1
+        self.fullwidth = fontMetrics.maxWidth() + 1
+        self.height = fontMetrics.height() + 1
+        self.width = fontMetrics.maxWidth() + 1
+        self.ascent = fontMetrics.ascent()
+        self.descent = fontMetrics.descent()
+
+        self.cellWidth = fontMetrics.maxWidth() + 1
+        self.cellHeight = fontMetrics.height() + 1
+        self.baseLine = fontMetrics.ascent() + 1
+        self.maxCharWidth = fontMetrics.maxWidth() + 1
+        self.textureSize = 0
+        self.numTexs = 5
+        self.texFormat = 3
+        self.charsPerColumn = 5
+        self.charsPerRow = 5
+        self.texWidth = 0
+        self.texHeight = 0
 
         return self
 
 
+    def save(self):
+        """
+        Save the font and return its data
+        """
 
-def reconfigureBrfnt():
-    """
-    Restructure the file headers and sections and such before saving
-    """
-    # Since editing the brfnt can change the
-    # size and number of characters, this
-    # function picks new values for texture
-    # headers.
-
-    # TGLP
-    tglp = Font.tglp
-    tglp.row, tglp.column = 8, 8
-    tglp.amount = int(len(Font.glyphs) / 64)
-    if float(int(len(Font.glyphs) / 64)) != len(Font.glyphs) / 64:
-        tglp.amount = int(len(Font.glyphs) / 64) + 1
-    print(len(Font.glyphs))
-    print(tglp.amount)
-
-    # RFNT
-    print(Font.rfnt.chunkcount)
-    # Chunkcount is unrelated to the # of tex's?
-    # It's used NOWHERE in the opening algorithm...
+        # Reconfigure the BRFNT
 
 
+        # Since editing the brfnt can change the
+        # size and number of characters, this
+        # function picks new values for texture
+        # headers.
+
+        # TGLP
+        self.charsPerRow, self.charsPerColumn = 8, 8
+        self.numTexs = int(len(self.glyphs) / 64)
+        if float(int(len(self.glyphs) / 64)) != len(self.glyphs) / 64:
+            self.numTexs = int(len(Font.glyphs) / 64) + 1
+        print(len(self.glyphs))
+        print(self.numTexs)
+
+        # RFNT
+        # print(Font.rfnt.chunkcount)
+        # Chunkcount is unrelated to the # of tex's?
+        # It's used NOWHERE in the opening algorithm...
 
 
-class brfntHeader():
-    """
-    Represents the brfnt header
-    """
+        # Skip RFNT until the end
 
-    def __init__(self, vmajor, vminor, chunkcount):
-        self.versionmajor = vmajor      # Major Font Version (0xFFFE)
-        self.versionminor = vminor      # Minor Font Version (0x0104)
-        self.chunkcount = chunkcount    # Number of chunks in the file
+        # Render the glyphs to TPL
+        texs = self.RenderGlyphsToTPL()
 
+        # Pack FINF
+        # FINFbin = struct.pack('>IIBbHbBbBIIIBBBB', tmpf[16:48])
 
-class FontInformation():
-    """
-    Represents the finf section
-    """
+        # # Pack TGLP
+        # TGLPbin = struct.pack('>IIBBbBIHHHHHHI', tmpf[48:96])
 
-    def __init__(self, fonttype, leading, defaultchar, leftmargin, charwidth, fullwidth, encoding, height, width, ascent, descent):
-        # '>BbHbBbBBBBB'
-        # B = unsigned; len 1
-        # b =   signed; len 1
-        # H = unsigned; len 2
-        self.fonttype = fonttype                #
-        self.leading = leading + 1              # http://en.wikipedia.org/wiki/Leading
-        self.defaultchar = defaultchar          # Default char for exceptions
-        self.leftmargin = leftmargin            #
-        self.charwidth = charwidth + 1          #
-        self.fullwidth = fullwidth + 1          #
-        self.encoding = encoding                # In order - UTF-8, UTF-16, SJIS, CP1252, COUNT
-        self.height = height + 1                #
-        self.width = width + 1                  #
-        self.ascent = ascent                    #
-        self.descent = descent                  #
+        # # Pack CWDH
+        # CWDHbin = struct.pack('>3Ixxxx', tmpf, FINF[10] - 8)
 
+        # # Pack CWDH2
+        # CWDH2 = []
 
-class TextureInformation():
-    """
-    Represents the Texture Palette Group header
-    """
+        # # Pack CMAP
+        # CMAP = []
 
-    def __init__(self, cellWidth, cellHeight, baseLine, maxCharWidth, texsize, texNum, texType, column, row, width, height):
-        self.cellWidth = cellWidth + 1          # Font Width (0 base)
-        self.cellHeight = cellHeight + 1        # Font Height (0 base)
-        self.baseLine = baseLine + 1            # Position of baseline from top (0 base)
-        self.maxCharWidth = maxCharWidth + 1    # Maximum width of a single character (0 base)
-        self.textureSize = texsize              # Length of texture in bytes
-        self.amount = texNum                    # Number of textures in the TGLP
-        self.type = texType                     # TPL format
-        self.column = column                    # Number of characters per column
-        self.row = row                          # Number of characters per row
-        self.width = width                      # Width of a texture
-        self.height = height                    # Height of a texture
+        # Pack RFNT
+        RFNTdata = (
+            0x52464E54, # b'RFNT'
+            self.rfntVersionMajor,
+            self.rfntVersionMinor,
+            0, # length of entire font - figure out how to put this together later?
+            0x10,
+            0#self.rfnt.chunkcount,
+            )
+        RFNTbin = struct.pack('>IHHIHH', *RFNTdata)
+
+        # Put everything together
+        finaldata = bytes()
+
+        # Save data
+        return finaldata
 
 
 
