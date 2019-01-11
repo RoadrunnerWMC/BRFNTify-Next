@@ -1,0 +1,127 @@
+
+BRFNT file format, as divined from the BRFNTify source code
+RRWMC Jan 10 2019
+~
+
+
+RFNT -- main file header
+    b'RFNT';
+    u16 versionMajor # 0xFFFE
+    u16 versionMinor # 0x0104
+    u32 totalFileLen
+    u16 0x10
+    u16 numChunks # total number of FINF, TGLP, CWDH and CMAP blocks
+
+(address 0x10)
+FINF -- font info
+    b'FINF'
+    u32 finfLen # 0x20
+    u8 fontType
+    s8 leading
+    u16 defaultChar
+    s8 leftMargin
+    u8 charWidth
+    s8 fullWidth
+    u8 encoding
+    u32 tglpAddr_Plus8 # 0x38
+    u32 cwdhAddr_Plus8
+    u32 firstCMAPAddr_Plus8
+    u8 height
+    u8 width
+    u8 ascent
+    u8 descent
+
+(address 0x30)
+TGLP -- texture stuff
+    b'TGLP'
+    u32 tglpLen # subtract 48 to get the texture len
+    u8 cellWidth
+    u8 cellHeight
+    s8 baseLine
+    u8 maxCharWidth
+    u32 bytesPerTexture
+    u16 numTextures
+    u16 texFormat
+    u16 charsPerRow
+    u16 charsPerColumn
+    u16 texWidth
+    u16 texHeight
+    u32 unk # always 0x60?
+    [texture: bytesPerTexture bytes long]  -.
+    [texture: bytesPerTexture bytes long]   |---  numTextures textures
+    [texture: bytesPerTexture bytes long]   |
+    [texture: bytesPerTexture bytes long]  -'
+
+CWDH -- character metrics
+    b'CWDH'
+    u32 cwdhLen
+    u32 numEntries_Minus1
+    u32 unk_pad
+    [entry: 3 bytes long]  -.
+    [entry: 3 bytes long]   |---  (numEntries_Minus1 + 1) entries.
+    [entry: 3 bytes long]   |     One per glyph image; if there are more glyph images, default to 0xFF FF FF
+    [entry: 3 bytes long]  -'
+
+    CWDH entry
+        s8 leftMargin
+        u8 charWidth
+        s8 fullWidth
+
+CMAP -- mapping glyphs to character codes
+    b'CMAP'
+    u32 cmapLen
+    u16 firstCharCode
+    u16 lastCharCode
+    u16 type
+    u16 unk_pad
+    u32 nextCMAPAddr_Plus8 # 0 if last CMAP
+    [data -- depends on the type value; see below]
+
+    Type 0: Simple 1:1 range
+
+        data:
+            u16 firstIndex
+
+        meaning:
+            glyphImages[firstIndex + 0] = firstCharCode + 0
+            glyphImages[firstIndex + 1] = firstCharCode + 1
+            ...
+            glyphImages[firstIndex + *] = lastCharCode
+
+    Type 1: Range of char codes mapped to explicit indices
+
+        data:
+            u16 firstIndex   --.
+            u16 secondIndex    |-- (lastCharCode - firstCharCode + 1) indices
+            u16 thirdIndex     |
+            ...              --'
+
+        meaning:
+            glyphImages[firstIndex]  = firstCharCode + 0
+            glyphImages[secondIndex] = firstCharCode + 1
+            ...
+            glyphImages[lastIndex]   = lastCharCode
+
+            NOTE: if any of the indices are FFFF, skip them
+
+
+    Type 2: Explicit mapping
+
+        (note: firstCharCode is 0 and lastCharCode is FFFF in this type)
+
+        data:
+            u16 numEntries
+            Entry firstEntry   --.
+            Entry secondEntry    | -- numEntries entries
+            Entry thirdEntry     |
+            ...                --'
+
+            where Entry is
+                u16 charCode
+                u16 index
+
+        meaning:
+            glyphImages[firstEntry.index] = firstEntry.charCode
+            glyphImages[secondEntry.index] = secondEntry.charCode
+            ...
+            glyphImages[lastEntry.index] = lastEntry.charCode

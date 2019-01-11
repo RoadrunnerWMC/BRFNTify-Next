@@ -25,7 +25,6 @@ Requires Python 3, PyQt5 and TPLLib
    - Fix it so it actually works right
    - TPL Selector
    - Encoding Selector
- * Saving!
  * More icons
  * First time showing the Text Preview dock causes the scene to go black?
  * New readme

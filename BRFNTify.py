@@ -145,11 +145,11 @@ class Window(QtWidgets.QMainWindow):
         # Dock show/hide actions are created later
         self.CreateAction('leading', self.HandleLeading, GetIcon('leading'), '&Leading', 'Show or hide leading lines (the height of each line of text)', 'Ctrl+1')
         self.CreateAction('ascent', self.HandleAscent, GetIcon('ascent'), '&Ascent', 'Show or hide ascent lines (the height of capital letters)', 'Ctrl+2')
-        self.CreateAction('baseline', self.HandleBaseline, GetIcon('baseline'), '&Baseline', 'Show or hide baselines (the bottom)', 'Ctrl+3')
+        self.CreateAction('baseLine', self.HandleBaseline, GetIcon('baseLine'), '&Baseline', 'Show or hide baseLines (the bottom)', 'Ctrl+3')
         self.CreateAction('widths', self.HandleWidths, GetIcon('widths'), '&Widths', 'Show or hide the widths of each character', 'Ctrl+4')
         self.actions['leading'].setCheckable(True)
         self.actions['ascent'].setCheckable(True)
-        self.actions['baseline'].setCheckable(True)
+        self.actions['baseLine'].setCheckable(True)
         self.actions['widths'].setCheckable(True)
         self.CreateAction('about', self.HandleAbout, GetIcon('about'), '&About', 'About BRFNTify Next', 'Ctrl+H')
 
@@ -183,7 +183,7 @@ class Window(QtWidgets.QMainWindow):
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.actions['leading'])
         self.viewMenu.addAction(self.actions['ascent'])
-        self.viewMenu.addAction(self.actions['baseline'])
+        self.viewMenu.addAction(self.actions['baseLine'])
         self.viewMenu.addAction(self.actions['widths'])
         m.addMenu(self.viewMenu)
         self.helpMenu = QtWidgets.QMenu('&Help', self)
@@ -299,7 +299,7 @@ class Window(QtWidgets.QMainWindow):
                 0,
                 0,
                 Font.cellWidth * 30,
-                Font.cellHeight * (((Font.charsPerRow * Font.charsPerColumn * Font.numTexs) / 30) + 1))
+                Font.cellHeight * (len(Font.glyphs) / 30) + 1)
 
             x = 0
             y = 0
@@ -357,15 +357,11 @@ class Window(QtWidgets.QMainWindow):
         """
         Save the font file and return its data
         """
-
-        # Display a warning
-        QtWidgets.QMessageBox.warning(self, 'Save', 'Saving is not yet completed. This save operation will be attempted but no guarantees.')
-
         try:
             return Font.save()
 
         except Exception as e:
-            sel.ShowErrorBox('An error occured while trying to save this file. Please refer to the information below for more details.')
+            self.ShowErrorBox('An error occured while trying to save this file. Please refer to the information below for more details.')
 
 
     def RenderGlyphsToTPL(self):
@@ -717,13 +713,13 @@ class Glyph(QtWidgets.QGraphicsItem):
     Class for a character glyph
     """
 
-    def __init__(self, pixmap, char, leftmargin=0, charwidth=0, fullwidth=0):
+    def __init__(self, pixmap, char, leftMargin=0, charWidth=0, fullWidth=0):
         super().__init__()
 
         self.char = char
-        self.leftmargin = leftmargin
-        self.charwidth = charwidth
-        self.fullwidth = fullwidth
+        self.leftMargin = leftMargin
+        self.charWidth = charWidth
+        self.fullWidth = fullWidth
         self.pixmap = pixmap
         self.boundingRect = QtCore.QRectF(0,0,pixmap.width(),pixmap.height())
         self.selectionRect = QtCore.QRectF(0,0,pixmap.width()-1,pixmap.height()-1)
@@ -739,7 +735,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         """
         b = self.char.encode(encoding, 'replace')
         if len(b) == 1: b = b'\0' + b
-        return struct.unpack_from('>H', b)
+        return struct.unpack_from('>H', b)[0]
 
 
     def updateToolTip(self, encoding):
@@ -834,7 +830,7 @@ def FindGlyph(char):
     for glyph in Font.glyphs:
         if glyph.char == char:
             return glyph
-        elif ord(glyph.char) == Font.defaultchar:
+        elif ord(glyph.char) == Font.defaultChar:
             default = glyph
     return default
 
@@ -846,135 +842,107 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     """
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
     encodingList = ['UTF-8LE', 'UTF-8BE', 'UTF-16LE', 'UTF-16BE', 'SJIS', 'CP1252', 'COUNT']
-    formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB4A3', 'RGB565', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
+    formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
     parent = None
 
     def __init__(self, parent):
         super().__init__(parent)
-
-        # Metrics Group
-        self.defaultchar = QtWidgets.QLineEdit() # Default char for exceptions
-        self.defaultchar.setMaxLength(1)
-        self.defaultchar.setMaximumWidth(30)
-
-        self.fonttype = 0
-        self.encoding = 'None'
-        self.format = 'None'
-        # Default Char
-        self.leftmargin = 0
-        self.charwidth = 0
-        self.fullwidth = 0
-        self.leading = 0
-        self.ascent = 0
-        self.baseline = 0
-        self.width = 0
-        self.height = 0
+        self.setWindowTitle('Font Metrics')
 
         self.setupGui()
         w = QtWidgets.QWidget()
         w.setLayout(self.layout)
-        sp = w.sizePolicy()
-        w.setSizePolicy(sp)
         self.setWidget(w)
-
-        self.setWindowTitle('Font Metrics')
 
 
     def setupGui(self):
 
-        self.fonttypeEdit = QtWidgets.QComboBox()
-        self.encodingEdit = QtWidgets.QComboBox()
-        self.formatEdit = QtWidgets.QComboBox()
-        self.defaultcharEdit = QtWidgets.QLineEdit()
-        self.leftmarginEdit = QtWidgets.QSpinBox()
-        self.charwidthEdit = QtWidgets.QSpinBox()
-        self.fullwidthEdit = QtWidgets.QSpinBox()
-        self.leadingEdit = QtWidgets.QSpinBox()
-        self.ascentEdit = QtWidgets.QSpinBox()
-        self.baselineEdit = QtWidgets.QSpinBox()
-        self.widthEdit = QtWidgets.QSpinBox()
-        self.heightEdit = QtWidgets.QSpinBox()
-        self.edits = [self.fonttypeEdit, self.encodingEdit, self.formatEdit, self.defaultcharEdit, self.leftmarginEdit, self.charwidthEdit, self.fullwidthEdit, self.leadingEdit, self.ascentEdit, self.baselineEdit, self.widthEdit, self.heightEdit]
+        self.edits = {
+            'fontType': QtWidgets.QComboBox(),
+            'encoding': QtWidgets.QComboBox(),
+            'format': QtWidgets.QComboBox(),
+            'charsPerRow': QtWidgets.QSpinBox(),
+            'charsPerColumn': QtWidgets.QSpinBox(),
+            'defaultChar': QtWidgets.QLineEdit(),
+            'leftMargin': QtWidgets.QSpinBox(),
+            'charWidth': QtWidgets.QSpinBox(),
+            'fullWidth': QtWidgets.QSpinBox(),
+            'leading': QtWidgets.QSpinBox(),
+            'ascent': QtWidgets.QSpinBox(),
+            'baseLine': QtWidgets.QSpinBox(),
+            'width': QtWidgets.QSpinBox(),
+            'height': QtWidgets.QSpinBox(),
+        }
 
-        self.fonttypeEdit.currentIndexChanged.connect(lambda: self.boxChanged('combo', 'fonttype'))
-        self.encodingEdit.currentIndexChanged.connect(lambda: self.boxChanged('combo', 'encoding'))
-        self.formatEdit.currentIndexChanged.connect(lambda: self.boxChanged('combo', 'format'))
-        self.defaultcharEdit.textChanged.connect(lambda: self.boxChanged('line', 'defaultchar'))
-        self.leftmarginEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'leftmargin'))
-        self.charwidthEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'charwidth'))
-        self.fullwidthEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'fullwidth'))
-        self.leadingEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'leading'))
-        self.ascentEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'ascent'))
-        self.baselineEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'baseline'))
-        self.widthEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'width'))
-        self.heightEdit.valueChanged.connect(lambda: self.boxChanged('spin', 'height'))
+        for name, e in self.edits.items():
+            if isinstance(e, QtWidgets.QComboBox):
+                e.currentIndexChanged.connect(lambda: self.boxChanged(name))
+            elif isinstance(e, QtWidgets.QSpinBox):
+                e.valueChanged.connect(lambda: self.boxChanged(name))
+            elif isinstance(e, QtWidgets.QLineEdit):
+                e.textChanged.connect(lambda: self.boxChanged(name))
 
-        self.fonttypeEdit.addItems(self.typeList)
-        self.encodingEdit.addItems(self.encodingList)
-        self.formatEdit.addItems(self.formatList)
-        self.defaultcharEdit.setMaxLength(1)
-        self.defaultcharEdit.setMaximumWidth(30)
+        self.edits['fontType'].addItems(self.typeList)
+        self.edits['encoding'].addItems(self.encodingList)
+        self.edits['format'].addItems(self.formatList)
+        self.edits['defaultChar'].setMaxLength(1)
+        self.edits['defaultChar'].setMaximumWidth(30)
 
-        for e in self.edits: e.setEnabled(False)
+        for e in self.edits.values(): e.setEnabled(False)
 
         lyt = QtWidgets.QFormLayout()
-        lyt.addRow('Font Type:', self.fonttypeEdit)
-        lyt.addRow('Encoding:', self.encodingEdit)
-        lyt.addRow('Texture Format:', self.formatEdit)
-        lyt.addRow('Default Char:', self.defaultcharEdit)
-        lyt.addRow('Left Margin:', self.leftmarginEdit)
-        lyt.addRow('Char Width:', self.charwidthEdit)
-        lyt.addRow('Full Width:', self.fullwidthEdit)
-        lyt.addRow('Leading:', self.leadingEdit)
-        lyt.addRow('Ascent:', self.ascentEdit)
-        lyt.addRow('Baseline:', self.baselineEdit)
-        lyt.addRow('Width:', self.widthEdit)
-        lyt.addRow('Height:', self.heightEdit)
+        lyt.addRow('Font Type:', self.edits['fontType'])
+        lyt.addRow('Encoding:', self.edits['encoding'])
+        lyt.addRow('Texture Format:', self.edits['format'])
+        lyt.addRow('Chars Per Row:', self.edits['charsPerRow'])
+        lyt.addRow('Chars Per Column:', self.edits['charsPerColumn'])
+        lyt.addRow('Default Char:', self.edits['defaultChar'])
+        lyt.addRow('Left Margin:', self.edits['leftMargin'])
+        lyt.addRow('Char Width:', self.edits['charWidth'])
+        lyt.addRow('Full Width:', self.edits['fullWidth'])
+        lyt.addRow('Leading:', self.edits['leading'])
+        lyt.addRow('Ascent:', self.edits['ascent'])
+        lyt.addRow('Baseline:', self.edits['baseLine'])
+        lyt.addRow('Width:', self.edits['width'])
+        lyt.addRow('Height:', self.edits['height'])
         self.layout = lyt
 
 
     def updateFields(self, parent):
 
-        for e in self.edits: e.setEnabled(True)
+        for e in self.edits.values(): e.setEnabled(True)
 
-        self.fonttypeEdit.setCurrentIndex(self.typeList.index(str(Font.fonttype)))
-        self.encodingEdit.setCurrentIndex(self.encodingList.index(Font.encoding))
-        self.formatEdit.setCurrentIndex(Font.texFormat)
-        self.defaultcharEdit.setText(chr(Font.defaultchar))
-        self.leftmarginEdit.setValue(Font.leftmargin)
-        self.charwidthEdit.setValue(Font.charwidth)
-        self.fullwidthEdit.setValue(Font.fullwidth)
-        self.leadingEdit.setValue(Font.leading)
-        self.ascentEdit.setValue(Font.ascent)
-        self.baselineEdit.setValue(Font.baseLine)
-        self.widthEdit.setValue(Font.width)
-        self.heightEdit.setValue(Font.height)
+        self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
+        self.edits['encoding'].setCurrentIndex(self.encodingList.index(Font.encoding))
+        self.edits['format'].setCurrentIndex(Font.texFormat)
+        self.edits['charsPerRow'].setValue(Font.charsPerRow)
+        self.edits['charsPerColumn'].setValue(Font.charsPerColumn)
+        self.edits['defaultChar'].setText(chr(Font.defaultChar))
+        self.edits['leftMargin'].setValue(Font.leftMargin)
+        self.edits['charWidth'].setValue(Font.charWidth)
+        self.edits['fullWidth'].setValue(Font.fullWidth)
+        self.edits['leading'].setValue(Font.leading)
+        self.edits['ascent'].setValue(Font.ascent)
+        self.edits['baseLine'].setValue(Font.baseLine)
+        self.edits['width'].setValue(Font.width)
+        self.edits['height'].setValue(Font.height)
         self.parent = parent
 
 
-    def boxChanged(self, type, name):
+    def boxChanged(self, name):
         """
         A box was changed
         """
         if self.parent is None: return
-        if type == 'combo':
-            if name == 'fonttype':
-                Font.fonttype = self.fonttypeEdit.currentText()
-            elif name == 'encoding':
-                Font.encoding = self.encodingEdit.currentText()
-                for g in Font.glyphs:
-                    g.updateToolTip(Font.encoding)
-            elif name == 'format':
-                Font.type = self.formatEdit.currentIndex()
-        elif type == 'line':
-            if name == 'defaultchar':
-                Font.defaultchar = ord(self.defaultcharEdit.text())
-        elif type == 'spin':
-            if name in ('leftmargin', 'charwidth', 'fullwidth', 'leading', 'ascent', 'width', 'height'):
-                newval = eval('self.%sEdit.value()' % name)
-                setattr(Font, name, newval)
-            elif name == 'baseline':
-                Font.baseLine = self.baselineEdit.value()
+
+        w = self.edits[name]
+        if isinstance(w, QtWidgets.QComboBox):
+            value = w.currentIndex()
+        elif isinstance(w, QtWidgets.QSpinBox):
+            value = w.value()
+        elif isinstance(w, QtWidgets.QLineEdit):
+            value = ord(w.text())
+        setattr(Font, name, value)
 
         window.brfntScene.update()
         window.prevDock.updatePreview()
@@ -989,9 +957,9 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         super().__init__(parent)
 
         self.value = None
-        self.leftmargin = 0
-        self.charwidth = 0
-        self.fullwidth = 0
+        self.leftMargin = 0
+        self.charWidth = 0
+        self.fullWidth = 0
 
         glyphFont = QtGui.QFont()
         glyphFont.setPointSize(22)
@@ -1016,18 +984,18 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         L.addWidget(self.glyphValueEdit, 0, 1)
         gv = QtWidgets.QWidget()
         gv.setLayout(L)
-        self.leftmarginEdit = QtWidgets.QSpinBox()
-        self.leftmarginEdit.setRange(-0x7F, 0x7F)
-        self.leftmarginEdit.valueChanged.connect(self.handleLeftmarginEditChanged)
-        self.leftmarginEdit.setEnabled(False)
-        self.charwidthEdit = QtWidgets.QSpinBox()
-        self.charwidthEdit.setMaximum(0xFF)
-        self.charwidthEdit.valueChanged.connect(self.handleCharwidthEditChanged)
-        self.charwidthEdit.setEnabled(False)
-        self.fullwidthEdit = QtWidgets.QSpinBox()
-        self.fullwidthEdit.setRange(-0x7F, 0x7F)
-        self.fullwidthEdit.valueChanged.connect(self.handleFullwidthEditChanged)
-        self.fullwidthEdit.setEnabled(False)
+        self.leftMarginEdit = QtWidgets.QSpinBox()
+        self.leftMarginEdit.setRange(-0x7F, 0x7F)
+        self.leftMarginEdit.valueChanged.connect(self.handleLeftmarginEditChanged)
+        self.leftMarginEdit.setEnabled(False)
+        self.charWidthEdit = QtWidgets.QSpinBox()
+        self.charWidthEdit.setMaximum(0xFF)
+        self.charWidthEdit.valueChanged.connect(self.handleCharwidthEditChanged)
+        self.charWidthEdit.setEnabled(False)
+        self.fullWidthEdit = QtWidgets.QSpinBox()
+        self.fullWidthEdit.setRange(-0x7F, 0x7F)
+        self.fullWidthEdit.valueChanged.connect(self.handleFullwidthEditChanged)
+        self.fullWidthEdit.setEnabled(False)
         horzA = createHorzLine()
         self.moveL = QtWidgets.QPushButton('Move Left')
         self.moveL.clicked.connect(lambda: self.handleMove('L'))
@@ -1050,9 +1018,9 @@ class CharMetricsDock(QtWidgets.QDockWidget):
 
         lyt = QtWidgets.QFormLayout()
         lyt.addRow('Character Value:', gv)
-        lyt.addRow('Left Margin:', self.leftmarginEdit)
-        lyt.addRow('Texture Width:', self.charwidthEdit)
-        lyt.addRow('Effective Width:', self.fullwidthEdit)
+        lyt.addRow('Left Margin:', self.leftMarginEdit)
+        lyt.addRow('Texture Width:', self.charWidthEdit)
+        lyt.addRow('Effective Width:', self.fullWidthEdit)
 
         mainLyt = QtWidgets.QGridLayout()
         mainLyt.addLayout(toplyt, 0, 0)
@@ -1083,13 +1051,13 @@ class CharMetricsDock(QtWidgets.QDockWidget):
             self.glyphLabel.setText('')
             self.glyphNameLabel.setText('')
             self.glyphValueEdit.setValue(0)
-            self.leftmarginEdit.setValue(0)
-            self.charwidthEdit.setValue(0)
-            self.fullwidthEdit.setValue(0)
+            self.leftMarginEdit.setValue(0)
+            self.charWidthEdit.setValue(0)
+            self.fullWidthEdit.setValue(0)
             self.glyphValueEdit.setEnabled(False)
-            self.leftmarginEdit.setEnabled(False)
-            self.charwidthEdit.setEnabled(False)
-            self.fullwidthEdit.setEnabled(False)
+            self.leftMarginEdit.setEnabled(False)
+            self.charWidthEdit.setEnabled(False)
+            self.fullWidthEdit.setEnabled(False)
             self.moveL.setEnabled(False)
             self.moveR.setEnabled(False)
             self.delete.setEnabled(False)
@@ -1100,13 +1068,13 @@ class CharMetricsDock(QtWidgets.QDockWidget):
             self.glyphLabel.setText(glyph.char)
             self.glyphNameLabel.setText(CharacterNames[ord(glyph.char)])
             self.glyphValueEdit.setValue(ord(glyph.char))
-            self.leftmarginEdit.setValue(glyph.leftmargin)
-            self.charwidthEdit.setValue(glyph.charwidth)
-            self.fullwidthEdit.setValue(glyph.fullwidth)
+            self.leftMarginEdit.setValue(glyph.leftMargin)
+            self.charWidthEdit.setValue(glyph.charWidth)
+            self.fullWidthEdit.setValue(glyph.fullWidth)
             self.glyphValueEdit.setEnabled(True)
-            self.leftmarginEdit.setEnabled(True)
-            self.charwidthEdit.setEnabled(True)
-            self.fullwidthEdit.setEnabled(True)
+            self.leftMarginEdit.setEnabled(True)
+            self.charWidthEdit.setEnabled(True)
+            self.fullWidthEdit.setEnabled(True)
             self.moveL.setEnabled(True)
             self.moveR.setEnabled(True)
             self.delete.setEnabled(True)
@@ -1130,7 +1098,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         Handle changes to the left margin line edit
         """
         if self.value is None: return
-        self.value.leftmargin = self.leftmarginEdit.value()
+        self.value.leftMargin = self.leftMarginEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
 
@@ -1139,7 +1107,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         Handle changes to the char width line edit
         """
         if self.value is None: return
-        self.value.charwidth = self.charwidthEdit.value()
+        self.value.charWidth = self.charWidthEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
 
@@ -1148,7 +1116,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         Handle changes to the full width line edit
         """
         if self.value is None: return
-        self.value.fullwidth = self.fullwidthEdit.value()
+        self.value.fullWidth = self.fullWidthEdit.value()
         self.value.update()
         window.prevDock.updatePreview()
 
@@ -1181,7 +1149,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         Handle the Copy button being clicked
         """
         c = self.value # c: "current"
-        new = Glyph(c.pixmap, c.value, c.leftmargin, c.charwidth, c.fullwidth)
+        new = Glyph(c.pixmap, c.value, c.leftMargin, c.charWidth, c.fullWidth)
         new.updateToolTip(Font.encoding)
         window.brfntScene.addItem(new)
         c.setSelected(False)
@@ -1251,9 +1219,9 @@ class TextPreviewDock(QtWidgets.QDockWidget):
             for char in line:
                 glyph = FindGlyph(char)
                 if glyph is None: continue
-                w = charOffset + glyph.charwidth
+                w = charOffset + glyph.charWidth
                 if w > linewidth: linewidth = w
-                charOffset += glyph.fullwidth
+                charOffset += glyph.fullWidth
 
             if linewidth > width: width = linewidth
 
@@ -1272,9 +1240,9 @@ class TextPreviewDock(QtWidgets.QDockWidget):
             for char in line:
                 glyph = FindGlyph(char)
                 if glyph is None: continue
-                # The glyph.pixmap.copy(...) part allows the image to be cropped to glyph.charwidth+1
-                paint.drawPixmap(x + glyph.leftmargin, y, glyph.pixmap.copy(0,0, glyph.charwidth+1, glyph.pixmap.height()))
-                x += glyph.fullwidth
+                # The glyph.pixmap.copy(...) part allows the image to be cropped to glyph.charWidth+1
+                paint.drawPixmap(x + glyph.leftMargin, y, glyph.pixmap.copy(0,0, glyph.charWidth+1, glyph.pixmap.height()))
+                x += glyph.fullWidth
             i += 1
 
         # Finish up
@@ -1451,7 +1419,7 @@ class ViewWidget(QtWidgets.QGraphicsView):
             for i, fi in enumerate(Font.glyphs):
                 j = int(i % cols)
                 x1 = j * Font.cellWidth
-                x2 = x1 + fi.charwidth + 2
+                x2 = x1 + fi.charWidth + 2
                 tooWide = x1 + Font.cellWidth < x2
 
                 painter.setPen(QtGui.QPen(QtGui.QColor.fromRgb(255, 255, 0, 255), 2))
@@ -1478,10 +1446,10 @@ class BRFNT:
         Load BRFNT data
         """
 
-        RFNT = struct.unpack_from('>IHHIHH', tmpf[0:16])
-        FINF = struct.unpack_from('>IIBbHbBbBIIIBBBB', tmpf[16:48])
-        TGLP = struct.unpack_from('>IIBBbBIHHHHHHI', tmpf[48:96])
-        CWDH = struct.unpack_from('>3Ixxxx', tmpf, FINF[10] - 8)
+        RFNT = struct.unpack_from('>4sHHIHH', tmpf[0:16])
+        FINF = struct.unpack_from('>4sIBbHbBbB3I4B', tmpf[16:48])
+        TGLP = struct.unpack_from('>4sIBBbBI6HI', tmpf[48:96])
+        CWDH = struct.unpack_from('>4sII4x', tmpf, FINF[10] - 8)
         CWDH2 = []
         CMAP = []
 
@@ -1526,19 +1494,19 @@ class BRFNT:
         self.rfntVersionMajor = RFNT[1]      # Major Font Version (0xFFFE)
         self.rfntVersionMinor = RFNT[2]      # Minor Font Version (0x0104)
 
-        self.fonttype = FINF[2]                 #
+        self.fontType = FINF[2]                 #
         self.leading = FINF[3] + 1              # http://en.wikipedia.org/wiki/Leading
-        self.defaultchar = FINF[4]              # Default char for exceptions
-        self.leftmargin = FINF[5]               #
-        self.charwidth = FINF[6] + 1            #
-        self.fullwidth = FINF[7] + 1            #
+        self.defaultChar = FINF[4]              # Default char for exceptions
+        self.leftMargin = FINF[5]               #
+        self.charWidth = FINF[6] + 1            #
+        self.fullWidth = FINF[7] + 1            #
         self.encoding = {
             0: 'UTF-8',
             1: 'UTF-16BE',
             2: 'SJIS',
             3: 'windows-1252',
             4: 'hex', # COUNT
-        }.get(FINF[8], 'UTF-8')
+            }.get(FINF[8], 'UTF-8')
         self.height = FINF[12] + 1              #
         self.width = FINF[13] + 1               #
         self.ascent = FINF[14]                  #
@@ -1546,31 +1514,28 @@ class BRFNT:
 
         self.cellWidth = TGLP[2] + 1            # Font Width (0 base)
         self.cellHeight = TGLP[3] + 1           # Font Height (0 base)
-        self.baseLine = TGLP[4] + 1             # Position of baseline from top (0 base)
+        self.baseLine = TGLP[4] + 1             # Position of baseLine from top (0 base)
         self.maxCharWidth = TGLP[5] + 1         # Maximum width of a single character (0 base)
-        self.textureSize = TGLP[6]              # Length of texture in bytes
-        self.numTexs = TGLP[7]                  # Number of textures in the TGLP
+        textureSize = TGLP[6]                   # Length of texture in bytes
+        numTexs = TGLP[7]                       # Number of textures in the TGLP
         self.texFormat = TGLP[8]                # TPL format
-        self.charsPerColumn = TGLP[9]           # Number of characters per column
-        self.charsPerRow = TGLP[10]             # Number of characters per row
-        self.texWidth = TGLP[11]                # Width of a texture
-        self.texHeight = TGLP[12]               # Height of a texture
+        self.charsPerRow = TGLP[9]              # Number of characters per column
+        self.charsPerColumn = TGLP[10]          # Number of characters per row
+        texWidth = TGLP[11]                     # Width of a texture
+        texHeight = TGLP[12]                    # Height of a texture
 
 
         TPLDat = tmpf[96:(TGLP[1] + 48)]
-        w = self.texWidth
-        h = self.texHeight
 
 
         SingleTex = []
         Images = []
-        length = self.textureSize
         offset = 0
-        charsPerTex = self.charsPerColumn * self.charsPerRow
+        charsPerTex = self.charsPerRow * self.charsPerColumn
 
-        for tex in range(self.numTexs):
-            SingleTex.append(struct.unpack('>' + str(length) + 'B', TPLDat[offset:length+offset]))
-            offset += length
+        for tex in range(numTexs):
+            SingleTex.append(struct.unpack('>' + str(textureSize) + 'B', TPLDat[offset:textureSize+offset]))
+            offset += textureSize
 
         prog = QtWidgets.QProgressDialog(window)
         prog.setRange(0, 100)
@@ -1594,14 +1559,14 @@ class BRFNT:
         for tex in SingleTex:
 
             decoder = TPLLib.decoder(self.texFormat)
-            decoder = decoder(tex, w, h, handlePctUpdated)
+            decoder = decoder(tex, texWidth, texHeight, handlePctUpdated)
             newdata = decoder.run()
-            dest = QtGui.QImage(newdata, w, h, 4 * w, QtGui.QImage.Format_ARGB32)
+            dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format_ARGB32)
 
             y = 0
-            for a in range(self.charsPerRow):
+            for a in range(self.charsPerColumn):
                 x = 0
-                for b in range(self.charsPerColumn):
+                for b in range(self.charsPerRow):
                     Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.cellWidth, self.cellHeight)))
                     x += self.cellWidth
                 y += self.cellHeight
@@ -1609,15 +1574,13 @@ class BRFNT:
         prog.setValue(100)
 
 
-
-
         CMAP.sort(key=lambda x: x[0])
 
         for i in range(len(CMAP), len(Images)):
-            CMAP.append((0xFFFF,0xFFFF))
+            CMAP.append((0xFFFF, 0xFFFF))
 
         for i in range(len(CWDH2), len(Images)):
-            CWDH2.append((0xFF,0xFF,0xFF))
+            CWDH2.append((0xFF, 0xFF, 0xFF))
 
 
         self.glyphs = []
@@ -1658,12 +1621,12 @@ class BRFNT:
         self.rfntVersionMajor = 0xFFFE
         self.rfntVersionMinor = 0x0104
 
-        self.fonttype = 1
+        self.fontType = 1
         self.leading = fontMetrics.height() + fontMetrics.leading() + 1
-        self.defaultchar = 0x20 # " "
-        self.leftmargin = fontMetrics.minLeftBearing()
-        self.charwidth = fontMetrics.maxWidth() + 1
-        self.fullwidth = fontMetrics.maxWidth() + 1
+        self.defaultChar = 0x20 # " "
+        self.leftMargin = fontMetrics.minLeftBearing()
+        self.charWidth = fontMetrics.maxWidth() + 1
+        self.fullWidth = fontMetrics.maxWidth() + 1
         self.height = fontMetrics.height() + 1
         self.width = fontMetrics.maxWidth() + 1
         self.ascent = fontMetrics.ascent()
@@ -1673,13 +1636,9 @@ class BRFNT:
         self.cellHeight = fontMetrics.height() + 1
         self.baseLine = fontMetrics.ascent() + 1
         self.maxCharWidth = fontMetrics.maxWidth() + 1
-        self.textureSize = 0
-        self.numTexs = 5
         self.texFormat = 3
-        self.charsPerColumn = 5
         self.charsPerRow = 5
-        self.texWidth = 0
-        self.texHeight = 0
+        self.charsPerColumn = 5
 
         return self
 
@@ -1689,64 +1648,233 @@ class BRFNT:
         Save the font and return its data
         """
 
-        # Reconfigure the BRFNT
+        data = bytearray()
 
+        # Leave space for the RFNT header
+        data.extend(b'\0' * 16)
+        numChunks = 0
 
-        # Since editing the brfnt can change the
-        # size and number of characters, this
-        # function picks new values for texture
-        # headers.
+        # Leave space for the FINF header
+        data.extend(b'\0' * 32)
+        numChunks += 1
 
         # TGLP
-        self.charsPerRow, self.charsPerColumn = 8, 8
-        self.numTexs = int(len(self.glyphs) / 64)
-        if float(int(len(self.glyphs) / 64)) != len(self.glyphs) / 64:
-            self.numTexs = int(len(Font.glyphs) / 64) + 1
-        print(len(self.glyphs))
-        print(self.numTexs)
 
-        # RFNT
-        # print(Font.rfnt.chunkcount)
-        # Chunkcount is unrelated to the # of tex's?
-        # It's used NOWHERE in the opening algorithm...
+        # Get the smallest power-of-two texture size that will fit
+        texWidth = texHeight = 1
+        while texWidth < self.cellWidth * self.charsPerRow:
+            texWidth <<= 1
+        while texHeight < self.cellHeight * self.charsPerColumn:
+            texHeight <<= 1
+
+        texImages = []
+        currentTexP = None
+        x = y = 0
+        for g in self.glyphs:
+            if currentTexP is None:
+                # make new tex
+                tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
+                tex.fill(QtCore.Qt.transparent)
+                currentTexP = QtGui.QPainter(tex)
+                texImages.append(tex)
+
+            currentTexP.drawPixmap(x * self.cellWidth, y * self.cellHeight, g.pixmap)
+
+            x += 1
+            if x >= self.charsPerRow:
+                x = 0
+                y += 1
+
+                if y >= self.charsPerColumn:
+                    y = 0
+                    currentTexP = None
+
+        texDatas = []
+        for ti in texImages:
+            encoder = TPLLib.encoder(self.texFormat)
+            encoder = encoder(ti.bits().asstring(texWidth * texHeight * 4), texWidth, texHeight)
+            texDatas.append(encoder.run())
 
 
-        # Skip RFNT until the end
+        data.extend(struct.pack('>4sIBBbBI6HI16x',
+            b'TGLP',
+            sum(len(t) for t in texDatas) + 0x30,
+            self.cellWidth - 1,
+            self.cellHeight - 1,
+            self.baseLine - 1,
+            self.maxCharWidth - 1,
+            len(texDatas[0]) if texDatas else 0,
+            len(texDatas),
+            self.texFormat,
+            self.charsPerRow,
+            self.charsPerColumn,
+            texWidth,
+            texHeight,
+            0x60))
+        numChunks += 1
+        for t in texDatas:
+            data.extend(t)
 
-        # Render the glyphs to TPL
-        texs = self.RenderGlyphsToTPL()
+        # CWDH
+        cwdhOffset = len(data)
+        # Leave space for the CWDH header
+        data.extend(b'\0' * 16)
+        numChunks += 1
 
-        # Pack FINF
-        # FINFbin = struct.pack('>IIBbHbBbBIIIBBBB', tmpf[16:48])
+        for g in self.glyphs:
+            data.extend(struct.pack('>bBb', g.leftMargin, g.charWidth, g.fullWidth))
+        while len(data) % 4: data.append(0)
 
-        # # Pack TGLP
-        # TGLPbin = struct.pack('>IIBBbBIHHHHHHI', tmpf[48:96])
+        # Fill in the CWDH header
+        struct.pack_into('>4sII', data, cwdhOffset,
+            b'CWDH',
+            len(data) - cwdhOffset,
+            len(self.glyphs) - 1)
 
-        # # Pack CWDH
-        # CWDHbin = struct.pack('>3Ixxxx', tmpf, FINF[10] - 8)
+        # CMAP
+        firstCMAPOffset = len(data)
+        prevCMAPOffset = None
 
-        # # Pack CWDH2
-        # CWDH2 = []
+        for type, firstChar, lastChar, extra in self._createCmapBlocks():
 
-        # # Pack CMAP
-        # CMAP = []
+            if prevCMAPOffset is not None:
+                struct.pack_into('>I', data, prevCMAPOffset + 16, len(data) + 8)
+            prevCMAPOffset = len(data)
 
-        # Pack RFNT
-        RFNTdata = (
-            0x52464E54, # b'RFNT'
+            extraData = bytearray()
+
+            if type == 0:
+                firstIndex = extra
+                extraData.extend(struct.pack('>Hxx', firstIndex))
+
+            elif type == 1:
+                indices = extra
+                extraData.extend(struct.pack('>' + len(indices) + 'H', indices))
+
+            else: # type == 2
+                entries = extra
+                extraData.extend(struct.pack('>H', len(entries)))
+                for e in entries:
+                    extraData.extend(struct.pack('>HH', e[0], e[1]))
+
+            while len(extraData) % 4: extraData.append(0)
+            data.extend(struct.pack('>4sIHHHxxI',
+                b'CMAP',
+                0x24 + len(extraData),
+                firstChar,
+                lastChar,
+                type,
+                0, # filled in at the beginning of the next iteration
+                ))
+            data.extend(extraData)
+            numChunks += 1
+
+
+        # Fill in the FINF header
+        struct.pack_into('>4sIBbHbBbB3I4B', data, 0x10,
+            b'FINF',
+            0x20,
+            self.fontType,
+            self.leading - 1,
+            self.defaultChar,
+            self.leftMargin,
+            self.charWidth - 1,
+            self.fullWidth - 1,
+            {
+                'utf-8': 0,
+                'utf-16be': 1,
+                'sjis': 2,
+                'windows-1252': 3,
+                'hex': 4,
+                }.get(self.encoding.lower(), 0),
+            0x38,
+            cwdhOffset + 8,
+            firstCMAPOffset + 8,
+            self.height - 1,
+            self.width - 1,
+            self.ascent,
+            self.descent)
+
+        # Fill in the RFNT header
+        struct.pack_into('>4sHHIHH', data, 0,
+            b'RFNT',
             self.rfntVersionMajor,
             self.rfntVersionMinor,
-            0, # length of entire font - figure out how to put this together later?
+            len(data),
             0x10,
-            0#self.rfnt.chunkcount,
-            )
-        RFNTbin = struct.pack('>IHHIHH', *RFNTdata)
+            numChunks)
 
-        # Put everything together
-        finaldata = bytes()
+        return data
 
-        # Save data
-        return finaldata
+
+    def _createCmapBlocks(self):
+        """
+        Figure out how glyphs should be defined among CMAP blocks, and
+        then yield the type value, the first character code, the last
+        character code, and an extra value for each one.
+        For type 0, the extra value is the first glyph index.
+        For type 1, the extra value is a list of glyph indices.
+        For type 2, the extra value is a list of (code, index) pairs.
+        """
+
+        charCodes = [g.value(self.encoding) for g in self.glyphs]
+        yieldedChars = [False] * len(charCodes)
+
+        def findRuns(L, minLen=1):
+            """
+            Find runs of numbers counting up by 1 in the given list.
+            Yield (startIndex, runLength) pairs.
+            Only runs at least minLen long will count.
+            """
+            if not L: return
+            runStartI = 0
+            lastValue = L[0]
+            for i, v in enumerate(L):
+                if i == 0: continue
+                if v != lastValue + 1:
+                    if i - runStartI >= minLen:
+                        yield runStartI, i - runStartI
+                    runStartI = i
+                lastValue = v
+            if len(L) - runStartI >= minLen:
+                yield runStartI, len(L) - runStartI
+
+
+        # Type-0 CMAPs (runs of glyphs and indices together)
+        for runStart, runLen in findRuns(charCodes, 5):
+            firstChar = charCodes[runStart]
+            lastChar = charCodes[runStart + runLen - 1]
+            yield 0, firstChar, lastChar, runStart
+
+            for i in range(runStart, runStart + runLen):
+                yieldedChars[i] = True
+
+        # Type-1 CMAPs (runs of increasing character codes with explicit indices)
+        remainingCodes = {}
+        for i, c in enumerate(charCodes):
+            if yieldedChars[i]: continue
+            remainingCodes[c] = i
+
+        sortedRemainingCodes = sorted(remainingCodes)
+        for runStart, runLen in findRuns(sortedRemainingCodes, 5):
+            firstChar = sortedRemainingCodes[runStart]
+            lastChar = sortedRemainingCodes[runStart + runLen - 1]
+            indices = []
+            for c in range(firstChar, lastChar + 1):
+                indices.append(remainingCodes[c])
+            yield 1, firstChar, lastChar, indices
+
+            for i in indices:
+                yieldedChars[i] = True
+
+        # And put whatever's left into a final type-2 CMAP (explicit mapping)
+        entries = []
+        for i, c in enumerate(charCodes):
+            if yieldedChars[i]: continue
+            entries.append((c, i))
+        entries.sort(key=lambda e: e[0]) # sort by char code
+        yield 2, 0, 0xFFFF, entries
+
 
 
 
