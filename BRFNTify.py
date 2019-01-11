@@ -409,7 +409,6 @@ class Window(QtWidgets.QMainWindow):
                     i += 1
             del painter
             import random
-            texImg.save(str(random.random()) + '.png')
 
             # The recommended method:
             # texImg.constBits().asstring(texImg.byteCount())
@@ -843,6 +842,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
     encodingList = ['UTF-8LE', 'UTF-8BE', 'UTF-16LE', 'UTF-16BE', 'SJIS', 'CP1252', 'COUNT']
     formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
+    updating = False
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -937,6 +937,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         for e in self.edits.values(): e.setEnabled(True)
 
+        self.updating = True
         self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
         self.edits['encoding'].setCurrentIndex(self.encodingList.index(Font.encoding))
         self.edits['format'].setCurrentIndex(Font.texFormat)
@@ -948,17 +949,18 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits['fullWidth'].setValue(Font.fullWidth)
         self.edits['leading'].setValue(Font.leading)
         self.edits['ascent'].setValue(Font.ascent)
-        self.edits['descent'].setValue(Font.ascent)
+        self.edits['descent'].setValue(Font.descent)
         self.edits['baseLine'].setValue(Font.baseLine)
         self.edits['width'].setValue(Font.width)
         self.edits['height'].setValue(Font.height)
+        self.updating = False
 
 
     def boxChanged(self, name):
         """
         A box was changed
         """
-        if Font is None: return
+        if Font is None or self.updating: return
 
         w = self.edits[name]
         if isinstance(w, QtWidgets.QComboBox):
@@ -1226,7 +1228,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         """
         Redraw the preview image
         """
-        if Font.encoding is None:
+        if Font is None:
             self.textEdit.setEnabled(False)
             self.prevWidget.setText('')
             return
