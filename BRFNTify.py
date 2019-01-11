@@ -1787,7 +1787,7 @@ class BRFNT:
             while len(extraData) % 4: extraData.append(0)
             data.extend(struct.pack('>4sIHHHxxI',
                 b'CMAP',
-                0x24 + len(extraData),
+                0x14 + len(extraData),
                 firstChar,
                 lastChar,
                 type,
