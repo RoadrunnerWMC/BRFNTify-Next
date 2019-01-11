@@ -241,7 +241,7 @@ class Window(QtWidgets.QMainWindow):
         """
         Size hint
         """
-        return QtCore.QSize(786, 512)
+        return QtCore.QSize(1280, 512)
 
 
     def ShowErrorBox(self, caption):
@@ -901,22 +901,35 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         for e in self.edits.values(): e.setEnabled(False)
 
-        lyt = QtWidgets.QFormLayout()
-        lyt.addRow('Font Type:', self.edits['fontType'])
-        lyt.addRow('Encoding:', self.edits['encoding'])
-        lyt.addRow('Texture Format:', self.edits['format'])
-        lyt.addRow('Chars Per Row:', self.edits['charsPerRow'])
-        lyt.addRow('Chars Per Column:', self.edits['charsPerColumn'])
-        lyt.addRow('Default Char:', self.edits['defaultChar'])
-        lyt.addRow('Left Margin:', self.edits['leftMargin'])
-        lyt.addRow('Char Width:', self.edits['charWidth'])
-        lyt.addRow('Full Width:', self.edits['fullWidth'])
-        lyt.addRow('Leading:', self.edits['leading'])
-        lyt.addRow('Ascent:', self.edits['ascent'])
-        lyt.addRow('Descent:', self.edits['descent'])
-        lyt.addRow('Baseline:', self.edits['baseLine'])
-        lyt.addRow('Width:', self.edits['width'])
-        lyt.addRow('Height:', self.edits['height'])
+        textPropsBox = QtWidgets.QGroupBox('Text Properties')
+        textPropsLyt = QtWidgets.QFormLayout(textPropsBox)
+        textPropsLyt.addRow('Font Type:', self.edits['fontType'])
+        textPropsLyt.addRow('Encoding:', self.edits['encoding'])
+        textPropsLyt.addRow('Default Char:', self.edits['defaultChar'])
+
+        texturesBox = QtWidgets.QGroupBox('Textures')
+        texturesLyt = QtWidgets.QFormLayout(texturesBox)
+        texturesLyt.addRow('Texture Format:', self.edits['format'])
+        texturesLyt.addRow('Chars Per Row:', self.edits['charsPerRow'])
+        texturesLyt.addRow('Chars Per Column:', self.edits['charsPerColumn'])
+        texturesLyt.addRow('Width:', self.edits['width'])
+        texturesLyt.addRow('Height:', self.edits['height'])
+        # cell width / height
+
+        metricsBox = QtWidgets.QGroupBox('Metrics')
+        metricsLyt = QtWidgets.QFormLayout(metricsBox)
+        metricsLyt.addRow('Left Margin:', self.edits['leftMargin'])
+        metricsLyt.addRow('Char Width:', self.edits['charWidth'])
+        metricsLyt.addRow('Full Width:', self.edits['fullWidth'])
+        metricsLyt.addRow('Leading:', self.edits['leading'])
+        metricsLyt.addRow('Ascent:', self.edits['ascent'])
+        metricsLyt.addRow('Descent:', self.edits['descent'])
+        metricsLyt.addRow('Baseline:', self.edits['baseLine'])
+
+        lyt = QtWidgets.QVBoxLayout()
+        lyt.addWidget(textPropsBox)
+        lyt.addWidget(texturesBox)
+        lyt.addWidget(metricsBox)
         self.layout = lyt
 
 
