@@ -1899,8 +1899,9 @@ class BRFNT:
         for i, c in enumerate(charCodes):
             if yieldedChars[i]: continue
             entries.append((c, i))
-        entries.sort(key=lambda e: e[0]) # sort by char code
-        yield 2, 0, 0xFFFF, entries
+        if entries:
+            entries.sort(key=lambda e: e[0]) # sort by char code
+            yield 2, 0, 0xFFFF, entries
 
 
 
