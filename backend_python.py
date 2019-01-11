@@ -89,7 +89,7 @@ class I4Decoder(Decoder):
         Runs the algorithm
         """
         tex, w, h = self.tex, self.size[0], self.size[1]
-        
+
         argbBuf = bytearray(w * h * 4)
         i = 0
         for ytile in range(0, h, 8):
@@ -99,25 +99,23 @@ class I4Decoder(Decoder):
 
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
-                        newpixel = (tex[i] >> 4) * 255 / 15 # upper nybble
-                        newpixel = int(newpixel)
-                        
+
+                        newpixel = (tex[i] >> 4) * 17 # upper nybble
+
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 0] = 0xFF
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 1] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 2] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 3] = newpixel
-                        
-                        newpixel = (tex[i] & 0x0F) * 255 / 15 # lower nybble
-                        newpixel = int(newpixel)
-                        
+
+                        newpixel = (tex[i] & 0xF) * 17 # lower nybble
+
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 4] = 0xFF
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 5] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 6] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 7] = newpixel
-                        
+
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -140,7 +138,7 @@ class I4Encoder(Encoder):
         Runs the algorithm
         """
         argb, w, h = self.argb, self.size[0], self.size[1]
-        
+
         texBuf = bytearray(int(w * h / 2))
         i = 0
         for ytile in range(0, h, 8):
@@ -155,22 +153,22 @@ class I4Encoder(Encoder):
                         newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
                         newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
                         newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
-                        newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
+                        newpixel = (newpixelR + newpixelG + newpixelB) / 3
                         newpixel = int(newpixel * (newpixelA / 255))
 
-                        texBuf[i] = int(newpixel * 15 / 255) << 4 # upper nybble
+                        texBuf[i] = ((newpixel + 8) // 17) << 4 # upper nybble
 
                         newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 4]
                         newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 5]
                         newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 6]
                         newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 7]
-                        newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
+                        newpixel = (newpixelR + newpixelG + newpixelB) / 3
                         newpixel = int(newpixel * (newpixelA / 255))
 
-                        texBuf[i] |= int(newpixel * 15 / 255)
-                        
+                        texBuf[i] |= (newpixel + 8) // 17 # lower nybble
+
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -193,26 +191,26 @@ class I8Decoder(Decoder):
         Runs the algorithm
         """
         tex, w, h = self.tex, self.size[0], self.size[1]
-        
+
         argbBuf = bytearray(w * h * 4)
         i = 0
         for ytile in range(0, h, 4):
             for xtile in range(0, w, 8):
                 for ypixel in range(ytile, ytile + 4):
                     for xpixel in range(xtile, xtile + 8):
-                        
+
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
+
                         newpixel = tex[i]
 
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 0] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 1] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 2] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 3] = 0xFF
-                        
+
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -235,7 +233,7 @@ class I8Encoder(Encoder):
         Runs the algorithm
         """
         argb, w, h = self.argb, self.size[0], self.size[1]
-        
+
         texBuf = bytearray(w * h)
         i = 0
         for ytile in range(0, h, 4):
@@ -250,11 +248,11 @@ class I8Encoder(Encoder):
                         newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
                         newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
                         newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
-                        newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
+                        newpixel = (newpixelR + newpixelG + newpixelB) / 3
                         texBuf[i] = int(newpixel * (newpixelA / 255))
 
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -269,7 +267,7 @@ class IA4Decoder(Decoder):
     Decodes an IA4 texture
     """
     # Format:
-    # IIIIAAAA
+    # AAAAIIII
     bytesPerPixel = 1
 
     def run(self):
@@ -284,13 +282,12 @@ class IA4Decoder(Decoder):
             for xtile in range(0, w, 8):
                 for ypixel in range(ytile, ytile + 4):
                     for xpixel in range(xtile, xtile + 8):
-                        
+
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
-                        alpha = (tex[i] >> 4) * 255 / 15
-                        newpixel = (tex[i] & 0x0F) * 255 / 15
-                        alpha, newpixel = int(alpha), int(newpixel)
+
+                        alpha = (tex[i] >> 4) * 17
+                        newpixel = (tex[i] & 0xF) * 17
 
                         argbBuf[((ypixel * w) + xpixel) * 4] = newpixel
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 1] = newpixel
@@ -298,7 +295,7 @@ class IA4Decoder(Decoder):
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 3] = alpha
 
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -313,7 +310,7 @@ class IA4Encoder(Encoder):
     Encodes an IA4 texture
     """
     # Format:
-    # IIIIAAAA
+    # AAAAIIII
     bytesPerPixel = 1
 
     def run(self):
@@ -321,7 +318,7 @@ class IA4Encoder(Encoder):
         Runs the algorithm
         """
         argb, w, h = self.argb, self.size[0], self.size[1]
-        
+
         texBuf = bytearray(w * h)
         i = 0
         for ytile in range(0, h, 4):
@@ -336,11 +333,11 @@ class IA4Encoder(Encoder):
                         newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
                         newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
                         newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
-                        newpixel = int((newpixelR + newpixelG + newpixelB) / 3)
-                        texBuf[i] = int(newpixel / 0xF) | int(newpixelA / 0xF)
+                        newpixel = (newpixelR + newpixelG + newpixelB) / 3
+                        texBuf[i] = (int((newpixelA + 8) // 17) << 4) | int((newpixel + 8) // 17)
 
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -370,13 +367,13 @@ class IA8Decoder(Decoder):
             for xtile in range(0, w, 4):
                 for ypixel in range(ytile, ytile + 4):
                     for xpixel in range(xtile, xtile + 4):
-                        
+
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
+
                         newpixel = tex[i]
                         i += 1
-                        
+
                         alpha = tex[i]
                         i += 1
 
@@ -407,7 +404,7 @@ class IA8Encoder(Encoder):
         Runs the algorithm
         """
         argb, w, h = self.argb, self.size[0], self.size[1]
-        
+
         texBuf = bytearray(w * h * 2)
         i = 0
         for ytile in range(0, h, 4):
@@ -427,7 +424,7 @@ class IA8Encoder(Encoder):
                         i += 1
                         texBuf[i] = newpixelA
                         i += 1
-                        
+
             newProgress = (ytile / h) - self.progress
             if newProgress > self.updateInterval and self.updater:
                 self.progress += self.updateInterval
@@ -457,18 +454,19 @@ class RGB565Decoder(Decoder):
             for xtile in range(0, w, 4):
                 for ypixel in range(ytile, ytile + 4):
                     for xpixel in range(xtile, xtile + 4):
-                        
+
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
-                        blue = (tex[i] & 0x1F) * 255 // 0x1F
-                        
-                        green1 = (tex[i] >> 5)
-                        green2 = (tex[i + 1] & 0x7)
-                        
-                        green = (green1 << 3) | (green2)
-                        
-                        red = (tex[i + 1] >> 3) * 255 // 0x1F
+
+                        blue5 = tex[i + 1] & 0x1F
+                        blue = blue5 << 3 | blue5 >> 2
+
+                        greenB = (tex[i + 1] >> 5)
+                        greenT = (tex[i] & 0x7)
+                        green = greenT << 5 | greenB << 2 | greenT >> 1
+
+                        red5 = tex[i] >> 3
+                        red = red5 << 3 | red5 >> 2
 
                         alpha = 0xFF
 
@@ -488,13 +486,58 @@ class RGB565Decoder(Decoder):
         return self.result
 
 
+
+class RGB565Encoder(Encoder):
+    """
+    Encodes an RGB565 texture
+    """
+    # Format:
+    # RRRRRGGG GGGBBBBB
+    bytesPerPixel = 2
+
+    def run(self):
+        """
+        Runs the algorithm
+        """
+        argb, w, h = self.argb, self.size[0], self.size[1]
+
+        texBuf = bytearray(w * h * 2)
+        i = 0
+        for ytile in range(0, h, 4):
+            for xtile in range(0, w, 4):
+                for ypixel in range(ytile, ytile + 4):
+                    for xpixel in range(xtile, xtile + 4):
+                        newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 0]
+                        newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
+                        newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
+                        newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
+                        newpixelR = int(newpixelR * (newpixelA / 255))
+                        newpixelG = int(newpixelG * (newpixelA / 255))
+                        newpixelB = int(newpixelB * (newpixelA / 255))
+                        red5 = ((newpixelR + 4) << 2) // 33
+                        green6 = ((newpixelG + 2) << 4) // 65
+                        blue5 = ((newpixelB + 4) << 2) // 33
+                        newpixel = red5 << 11 | green6 << 5 | blue5
+                        texBuf[i] = newpixel >> 8
+                        texBuf[i + 1] = newpixel & 0xFF
+                        i += 2
+
+            newProgress = (ytile / h) - self.progress
+            if newProgress > self.updateInterval and self.updater:
+                self.progress += self.updateInterval
+                self.updater()
+
+        self.result = bytes(texBuf)
+        return self.result
+
+
 class RGB4A3Decoder(Decoder):
     """
     Decodes an RGB4A3 texture
     """
     # Formats:
     # 1BBBBBGG GGGRRRRR
-    # 0RRRRGGG GBBBBAAA
+    # 0AAABBBB GGGGRRRR
     bytesPerPixel = 2
 
     def run(self):
@@ -509,25 +552,32 @@ class RGB4A3Decoder(Decoder):
             for xtile in range(0, w, 4):
                 for ypixel in range(ytile, ytile + 4):
                     for xpixel in range(xtile, xtile + 4):
-                        
+
                         if xpixel >= w or ypixel >= h:
                             continue
-                        
+
                         newpixel = (tex[i] << 8) | tex[i+1]
                         newpixel = int(newpixel)
-                        
+
 
                         if newpixel & 0x8000: # RGB555
-                            blue = ((newpixel >> 10) & 0x1F) * 255 // 0x1F
-                            green = ((newpixel >> 5) & 0x1F) * 255 // 0x1F
-                            red = (newpixel & 0x1F) * 255 // 0x1F
+                            blue5 = (newpixel >> 10) & 0x1F
+                            green5 = (newpixel >> 5) & 0x1F
+                            red5 = newpixel & 0x1F
+                            blue = blue5 << 3 | blue5 >> 2
+                            green = green5 << 3 | green5 >> 2
+                            red = red5 << 3 | red5 >> 2
                             alpha = 0xFF
 
                         else: # RGB4A3
-                            alpha = ((newpixel & 0x7000) >> 12) * 255 // 0x7
-                            blue = ((newpixel & 0xF00) >> 8) * 255 // 0xF
-                            green = ((newpixel & 0xF0) >> 4) * 255 // 0xF
-                            red = (newpixel & 0xF) * 255 // 0xF
+                            alpha3 = newpixel >> 12
+                            blue4 = (newpixel >> 8) & 0xF
+                            green4 = (newpixel >> 4) & 0xF
+                            red4 = newpixel & 0xF
+                            alpha = (alpha3 << 5) | (alpha3 << 2) | (alpha3 >> 1)
+                            blue = blue4 * 17
+                            green = green4 * 17
+                            red = red4 * 17
 
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 0] = red
                         argbBuf[(((ypixel * w) + xpixel) * 4) + 1] = green
@@ -542,6 +592,55 @@ class RGB4A3Decoder(Decoder):
                 self.updater()
 
         self.result = bytes(argbBuf)
+        return self.result
+
+
+class RGB4A3Encoder(Encoder):
+    """
+    Encodes an RGB4A3 texture
+    """
+    # Formats:
+    # 1BBBBBGG GGGRRRRR
+    # 0RRRRGGG GBBBBAAA
+    bytesPerPixel = 2
+
+    def run(self):
+        """
+        Runs the algorithm
+        """
+        argb, w, h = self.argb, self.size[0], self.size[1]
+
+        texBuf = bytearray(w * h * 2)
+        i = 0
+        for ytile in range(0, h, 4):
+            for xtile in range(0, w, 4):
+                for ypixel in range(ytile, ytile + 4):
+                    for xpixel in range(xtile, xtile + 4):
+                        newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 0]
+                        newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
+                        newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
+                        newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
+                        if newpixelA < 238: # RGB4A3
+                            alpha3 = ((newpixelA + 18) << 1) // 73
+                            red4 = (newpixelR + 8) // 17
+                            green4 = (newpixelG + 8) // 17
+                            blue4 = (newpixelB + 8) // 17
+                            newpixel = (alpha3 << 12) | (red4 << 8) | (green4 << 4) | blue4
+                        else: # RGB555
+                            red5 = ((newpixelR + 4) << 2) // 33
+                            green5 = ((newpixelG + 4) << 2) // 33
+                            blue5 = ((newpixelB + 4) << 2) // 33
+                            newpixel = 0x8000 | (red5 << 10) | (green5 << 5) | blue5
+                        texBuf[i] = newpixel >> 8
+                        texBuf[i + 1] = newpixel & 0xFF
+                        i += 2
+
+            newProgress = (ytile / h) - self.progress
+            if newProgress > self.updateInterval and self.updater:
+                self.progress += self.updateInterval
+                self.updater()
+
+        self.result = bytes(texBuf)
         return self.result
 
 
@@ -594,4 +693,49 @@ class RGBA8Decoder(Decoder):
                 self.updater()
 
         self.result = bytes(argbBuf)
+        return self.result
+
+
+
+class RGBA8Encoder(Encoder):
+    """
+    Encodes an RGBA8 texture
+    """
+    # Format:
+    # RRRRRRRR GGGGGGGG BBBBBBBB AAAAAAAA
+    bytesPerPixel = 4
+
+    def run(self):
+        """
+        Runs the algorithm
+        """
+        argb, w, h = self.argb, self.size[0], self.size[1]
+
+        texBuf = bytearray(w * h * 4)
+        i = 0
+        for ytile in range(0, h, 4):
+            for xtile in range(0, w, 4):
+                for ypixel in range(ytile, ytile + 4):
+                    for xpixel in range(xtile, xtile + 4):
+                        newpixelR = argb[(((ypixel * w) + xpixel) * 4) + 2]
+                        newpixelA = argb[(((ypixel * w) + xpixel) * 4) + 3]
+                        texBuf[i] = newpixelA
+                        i += 1
+                        texBuf[i] = newpixelR
+                        i += 1
+                for ypixel in range(ytile, ytile + 4):
+                    for xpixel in range(xtile, xtile + 4):
+                        newpixelB = argb[(((ypixel * w) + xpixel) * 4) + 0]
+                        newpixelG = argb[(((ypixel * w) + xpixel) * 4) + 1]
+                        texBuf[i] = newpixelG
+                        i += 1
+                        texBuf[i] = newpixelB
+                        i += 1
+
+            newProgress = (ytile / h) - self.progress
+            if newProgress > self.updateInterval and self.updater:
+                self.progress += self.updateInterval
+                self.updater()
+
+        self.result = bytes(texBuf)
         return self.result
