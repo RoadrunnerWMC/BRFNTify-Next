@@ -293,7 +293,7 @@ class Window(QtWidgets.QMainWindow):
 
             Font = BRFNT(tmpf)
 
-            self.fontDock.updateFields(self)
+            self.fontDock.updateFields()
             self.brfntScene.clear()
             self.brfntScene.setSceneRect(
                 0,
@@ -475,7 +475,7 @@ class Window(QtWidgets.QMainWindow):
                 x = x + item.pixmap.width()
                 i += 1
 
-            self.fontDock.updateFields(self)
+            self.fontDock.updateFields()
             self.view.updateDisplay()
             self.view.setScene(self.brfntScene)
             self.prevDock.updatePreview()
@@ -843,7 +843,6 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
     encodingList = ['UTF-8LE', 'UTF-8BE', 'UTF-16LE', 'UTF-16BE', 'SJIS', 'CP1252', 'COUNT']
     formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
-    parent = None
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -858,21 +857,39 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     def setupGui(self):
 
         self.edits = {
-            'fontType': QtWidgets.QComboBox(),
-            'encoding': QtWidgets.QComboBox(),
-            'format': QtWidgets.QComboBox(),
-            'charsPerRow': QtWidgets.QSpinBox(),
-            'charsPerColumn': QtWidgets.QSpinBox(),
-            'defaultChar': QtWidgets.QLineEdit(),
-            'leftMargin': QtWidgets.QSpinBox(),
-            'charWidth': QtWidgets.QSpinBox(),
-            'fullWidth': QtWidgets.QSpinBox(),
-            'leading': QtWidgets.QSpinBox(),
-            'ascent': QtWidgets.QSpinBox(),
-            'baseLine': QtWidgets.QSpinBox(),
-            'width': QtWidgets.QSpinBox(),
-            'height': QtWidgets.QSpinBox(),
+            'fontType': QtWidgets.QComboBox(self),
+            'encoding': QtWidgets.QComboBox(self),
+            'format': QtWidgets.QComboBox(self),
+            'charsPerRow': QtWidgets.QSpinBox(self),
+            'charsPerColumn': QtWidgets.QSpinBox(self),
+            'defaultChar': QtWidgets.QLineEdit(self),
+            'leftMargin': QtWidgets.QSpinBox(self),
+            'charWidth': QtWidgets.QSpinBox(self),
+            'fullWidth': QtWidgets.QSpinBox(self),
+            'leading': QtWidgets.QSpinBox(self),
+            'ascent': QtWidgets.QSpinBox(self),
+            'descent': QtWidgets.QSpinBox(self),
+            'baseLine': QtWidgets.QSpinBox(self),
+            'width': QtWidgets.QSpinBox(self),
+            'height': QtWidgets.QSpinBox(self),
         }
+
+        self.edits['fontType'].addItems(self.typeList)
+        self.edits['encoding'].addItems(self.encodingList)
+        self.edits['format'].addItems(self.formatList)
+        self.edits['charsPerRow'].setMaximum(0xFFFF)
+        self.edits['charsPerColumn'].setMaximum(0xFFFF)
+        self.edits['defaultChar'].setMaxLength(1)
+        self.edits['defaultChar'].setMaximumWidth(30)
+        self.edits['leftMargin'].setRange(-0x80, 0x7F)
+        self.edits['charWidth'].setRange(1, 0x100)
+        self.edits['fullWidth'].setRange(-0x7F, 0x80)
+        self.edits['leading'].setRange(-0x7F, 0x80)
+        self.edits['ascent'].setMaximum(0xFF)
+        self.edits['descent'].setMaximum(0xFF)
+        self.edits['baseLine'].setRange(-0x7F, 0x80)
+        self.edits['width'].setRange(1, 0x100)
+        self.edits['height'].setRange(1, 0x100)
 
         for name, e in self.edits.items():
             if isinstance(e, QtWidgets.QComboBox):
@@ -881,12 +898,6 @@ class FontMetricsDock(QtWidgets.QDockWidget):
                 e.valueChanged.connect(lambda: self.boxChanged(name))
             elif isinstance(e, QtWidgets.QLineEdit):
                 e.textChanged.connect(lambda: self.boxChanged(name))
-
-        self.edits['fontType'].addItems(self.typeList)
-        self.edits['encoding'].addItems(self.encodingList)
-        self.edits['format'].addItems(self.formatList)
-        self.edits['defaultChar'].setMaxLength(1)
-        self.edits['defaultChar'].setMaximumWidth(30)
 
         for e in self.edits.values(): e.setEnabled(False)
 
@@ -902,13 +913,14 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         lyt.addRow('Full Width:', self.edits['fullWidth'])
         lyt.addRow('Leading:', self.edits['leading'])
         lyt.addRow('Ascent:', self.edits['ascent'])
+        lyt.addRow('Descent:', self.edits['descent'])
         lyt.addRow('Baseline:', self.edits['baseLine'])
         lyt.addRow('Width:', self.edits['width'])
         lyt.addRow('Height:', self.edits['height'])
         self.layout = lyt
 
 
-    def updateFields(self, parent):
+    def updateFields(self):
 
         for e in self.edits.values(): e.setEnabled(True)
 
@@ -923,17 +935,17 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits['fullWidth'].setValue(Font.fullWidth)
         self.edits['leading'].setValue(Font.leading)
         self.edits['ascent'].setValue(Font.ascent)
+        self.edits['descent'].setValue(Font.ascent)
         self.edits['baseLine'].setValue(Font.baseLine)
         self.edits['width'].setValue(Font.width)
         self.edits['height'].setValue(Font.height)
-        self.parent = parent
 
 
     def boxChanged(self, name):
         """
         A box was changed
         """
-        if self.parent is None: return
+        if Font is None: return
 
         w = self.edits[name]
         if isinstance(w, QtWidgets.QComboBox):
