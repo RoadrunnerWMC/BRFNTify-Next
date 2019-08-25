@@ -1776,7 +1776,7 @@ class BRFNT:
 
             elif type == 1:
                 indices = extra
-                extraData.extend(struct.pack('>' + len(indices) + 'H', indices))
+                extraData.extend(struct.pack('>' + str(len(indices)) + 'H', indices))
 
             else: # type == 2
                 entries = extra
