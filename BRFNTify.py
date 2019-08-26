@@ -1176,7 +1176,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         Handle the Copy button being clicked
         """
         c = self.value # c: "current"
-        new = Glyph(c.pixmap, c.value, c.leftMargin, c.charWidth, c.fullWidth)
+        new = Glyph(c.pixmap, c.char, c.leftMargin, c.charWidth, c.fullWidth)
         new.updateToolTip(Font.encoding)
         window.brfntScene.addItem(new)
         c.setSelected(False)
