@@ -838,12 +838,19 @@ class Glyph(QtWidgets.QGraphicsItem):
         try: pix = QtGui.QPixmap(fn)
         except: return
 
-        if pix.height() > self.pixmap.height():
-            pix = pix.scaledToHeight(self.pixmap.height())
-        if pix.width() > self.pixmap.width():
+        # Resize it if needed
+        tooWide = pix.width() > self.pixmap.width()
+        tooTall = pix.height() > self.pixmap.height()
+        if tooWide and tooTall:
+            pix = pix.scaled(self.pixmap.width(), self.pixmap.height())
+        elif tooWide:
             pix = pix.scaledToWidth(self.pixmap.width())
+        elif tooTall:
+            pix = pix.scaledToHeight(self.pixmap.height())
 
+        # Set it
         self.pixmap = pix
+        self.update()
         window.prevDock.updatePreview()
 
 
