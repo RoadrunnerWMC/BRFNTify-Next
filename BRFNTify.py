@@ -607,7 +607,7 @@ class GenerateDialog(QtWidgets.QDialog):
     Allows the user to generate a glyph table from an installed font
     """
     fg = Qt.black
-    bg = Qt.white
+    bg = Qt.transparent
 
     def __init__(self):
         super().__init__()
@@ -631,6 +631,8 @@ class GenerateDialog(QtWidgets.QDialog):
         bg.fill(self.bg)
         self.fgLabel.setPixmap(fg)
         self.bgLabel.setPixmap(bg)
+
+        self.chars.setText(''.join([chr(x) for x in range(0x20, 0x7F)]))
 
         colorlayout = QtWidgets.QGridLayout()
         colorlayout.addWidget(QtWidgets.QLabel('Foreground:'), 0, 0)
