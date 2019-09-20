@@ -1038,19 +1038,10 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         self.glyphNameLabel = QtWidgets.QLabel()
         self.glyphNameLabel.setFont(glyphNameFont)
         self.glyphNameLabel.setWordWrap(True)
-        self.glyphValueLabel = QtWidgets.QLabel('0x')
         self.glyphValueEdit = HexSpinBox()
         self.glyphValueEdit.setMaximum(0xFFFF)
         self.glyphValueEdit.valueChanged.connect(self.handleGlyphvalueEditChanged)
         self.glyphValueEdit.setEnabled(False)
-        L = QtWidgets.QGridLayout()
-        L.setContentsMargins(0,0,0,0)
-        L.setSpacing(0)
-        L.setColumnStretch(1, 1)
-        L.addWidget(self.glyphValueLabel, 0, 0)
-        L.addWidget(self.glyphValueEdit, 0, 1)
-        gv = QtWidgets.QWidget()
-        gv.setLayout(L)
         self.leftMarginEdit = QtWidgets.QSpinBox()
         self.leftMarginEdit.setRange(-0x7F, 0x7F)
         self.leftMarginEdit.valueChanged.connect(self.handleLeftmarginEditChanged)
@@ -1084,7 +1075,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         toplyt.addRow('', self.glyphNameLabel)
 
         lyt = QtWidgets.QFormLayout()
-        lyt.addRow('Character Value:', gv)
+        lyt.addRow('Character Value:', self.glyphValueEdit)
         lyt.addRow('Left Margin:', self.leftMarginEdit)
         lyt.addRow('Texture Width:', self.charWidthEdit)
         lyt.addRow('Effective Width:', self.fullWidthEdit)
@@ -1317,58 +1308,16 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         self.prevWidget.setPixmap(pix)
 
 
-
-# This is copy-pasted from Reggie, mostly
 class HexSpinBox(QtWidgets.QSpinBox):
-    class HexValidator(QtGui.QValidator):
-        def __init__(self, min, max):
-            super().__init__()
-            self.valid = set('0123456789abcdef')
-            self.min = min
-            self.max = max
-
-        def validate(self, input, pos):
-
-            try:
-                value = int(input, 16)
-            except ValueError:
-                return (self.Invalid, input, pos)
-
-            if value < self.min or value > self.max:
-                return (self.Intermediate, self.format % value, pos)
-
-            return (self.Acceptable, self.format % value, pos)
-
-
     def __init__(self, format='%04X', *args):
+        self.format = format
+
         super().__init__(*args)
-        self.validator = self.HexValidator(self.minimum(), self.maximum())
-        self.validator.format = format
+        self.setPrefix('0x')
+        self.setDisplayIntegerBase(16)
 
-    def setMinimum(self, value):
-        self.validator.min = value
-        QtWidgets.QSpinBox.setMinimum(self, value)
-
-    def setMaximum(self, value):
-        self.validator.max = value
-        QtWidgets.QSpinBox.setMaximum(self, value)
-
-    def setRange(self, min, max):
-        self.validator.min = min
-        self.validator.max = max
-        QtWidgets.QSpinBox.setMinimum(self, min)
-        QtWidgets.QSpinBox.setMaximum(self, max)
-
-    def validate(self, text, pos):
-        return self.validator.validate(text, pos)
-
-    def textFromValue(self, value):
-        return self.validator.format % value
-
-    def valueFromText(self, value):
-        return int(str(value), 16)
-
-
+    def textFromValue(self, v):
+        return self.format % v
 
 
 class ViewWidget(QtWidgets.QGraphicsView):
