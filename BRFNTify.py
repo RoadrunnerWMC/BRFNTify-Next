@@ -1154,6 +1154,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         if self.value is None: return
         self.value.char = chr(self.glyphValueEdit.value())
         self.value.update()
+        self.value.updateToolTip(Font.encoding)
         window.prevDock.updatePreview()
         self.glyphLabel.setText(self.value.char)
 
