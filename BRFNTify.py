@@ -780,14 +780,15 @@ class Glyph(QtWidgets.QGraphicsItem):
         """
         Update the glyph's tooltip
         """
-        if self.char is not None:
-            text = '<p>Character:</p><p><span style="font-size: 24pt;">&#' + \
-                    str(ord(self.char)) + \
-                    ';</span></p><p>Value: 0x' + \
-                    '%X' % self.value(encoding)
+        if self.char is None:
+            name = '<p>Unknown glyph</p>'
         else:
-            text = '<p>Character: <span style="font-size: 24pt;">Unknown Glyph'
+            name = (
+                ('<p style="font-size: 24pt;">&#%d;</p>' % ord(self.char))
+                + ('<p>Value: 0x%X</p>' % self.value(encoding))
+            )
 
+        text = '<p>Character:</p>' + name
 
         self.setToolTip(text)
 
