@@ -29,11 +29,13 @@
 
 # Imports
 
+import functools
 import io
 import os
 import struct
 import sys
 import traceback
+import unicodedata
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
@@ -45,7 +47,6 @@ import TPLLib
 # Globals
 version = 'Beta 1'
 Font = None
-CharacterNames = {}
 
 
 
@@ -77,20 +78,58 @@ def createHorzLine():
     return f
 
 
-def LoadCharacterNames():
+@functools.lru_cache(1024)
+def getCharacterName(c):
     """
-    Load character names
+    Return the Unicode character name for c (a string of length 1)
     """
-    global CharacterNames
-    if CharacterNames: return
+    # ASCII control characters don't have officially defined Unicode
+    # names (just Unicode aliases), so unicodedata.name() refuses to
+    # name them. That's annoying. So we provide names for them manually.
+    OVERRIDES = {
+        '\x00': 'Null',
+        '\x01': 'Start Of Heading',
+        '\x02': 'Start Of Text',
+        '\x03': 'End Of Text',
+        '\x04': 'End Of Transmission',
+        '\x05': 'Enquiry',
+        '\x06': 'Acknowledge',
+        '\x07': 'Bell',
+        '\x08': 'Backspace',
+        '\x09': 'Character Tabulation',
+        '\x0A': 'Line Feed',
+        '\x0B': 'Line Tabulation',
+        '\x0C': 'Form Feed (FF)',
+        '\x0D': 'Carriage Return (CR)',
+        '\x0E': 'Shift Out',
+        '\x0F': 'Shift In',
+        '\x10': 'Data Link Escape',
+        '\x11': 'Device Control One',
+        '\x12': 'Device Control Two',
+        '\x13': 'Device Control Three',
+        '\x14': 'Device Control Four',
+        '\x15': 'Negative Acknowledge',
+        '\x16': 'Synchronous Idle',
+        '\x17': 'End Of Transmission Block',
+        '\x18': 'Cancel',
+        '\x19': 'End Of Medium',
+        '\x1A': 'Substitute',
+        '\x1B': 'Escape',
+        '\x1C': 'Information Separator Four',
+        '\x1D': 'Information Separator Three',
+        '\x1E': 'Information Separator Two',
+        '\x1F': 'Information Separator One',
+    }
 
-    with open('data/CharNames.txt', 'r', encoding='utf-8') as f:
-        d = f.read()
+    name = OVERRIDES.get(c)
+    if name is not None:
+        return name
 
-    for line in d.split('\n'):
-        code = int(line.split(' ')[0], 16)
-        name = ' '.join(line.split(' ')[1:])[1:-1]
-        CharacterNames[code] = name
+    name = unicodedata.name(c, None)
+    if name is None:
+        return '(Unknown)'
+    else:
+        return name.title()
 
 
 class Window(QtWidgets.QMainWindow):
@@ -1093,7 +1132,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
             glyph = glyphs[0]
             self.value = glyph
             self.glyphLabel.setText(glyph.char)
-            self.glyphNameLabel.setText(CharacterNames[ord(glyph.char)])
+            self.glyphNameLabel.setText(getCharacterName(glyph.char))
             self.glyphValueEdit.setValue(ord(glyph.char))
             self.leftMarginEdit.setValue(glyph.leftMargin)
             self.charWidthEdit.setValue(glyph.charWidth)
@@ -1117,8 +1156,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         window.prevDock.updatePreview()
         self.glyphLabel.setText(self.value.char)
 
-        name = CharacterNames[ord(self.value.char)]
-        self.glyphNameLabel.setText(name)
+        self.glyphNameLabel.setText(getCharacterName(self.value.char))
 
     def handleLeftmarginEditChanged(self):
         """
@@ -1914,8 +1952,6 @@ if __name__ == '__main__':
 
     global app, window
     app = QtWidgets.QApplication(sys.argv)
-
-    LoadCharacterNames()
 
     window = Window()
     window.show()
