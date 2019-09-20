@@ -896,9 +896,6 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.setWindowTitle('Font Metrics')
 
         self.setupGui()
-        w = QtWidgets.QWidget()
-        w.setLayout(self.layout)
-        self.setWidget(w)
 
 
     def setupGui(self):
@@ -973,11 +970,17 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         metricsLyt.addRow('Descent:', self.edits['descent'])
         metricsLyt.addRow('Baseline:', self.edits['baseLine'])
 
-        lyt = QtWidgets.QVBoxLayout()
+        baseWidget = QtWidgets.QWidget()
+        lyt = QtWidgets.QVBoxLayout(baseWidget)
         lyt.addWidget(textPropsBox)
         lyt.addWidget(texturesBox)
         lyt.addWidget(metricsBox)
-        self.layout = lyt
+
+        scrollArea = QtWidgets.QScrollArea()
+        scrollArea.setWidget(baseWidget)
+        scrollArea.setWidgetResizable(True)
+        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setWidget(scrollArea)
 
 
     def updateFields(self):
