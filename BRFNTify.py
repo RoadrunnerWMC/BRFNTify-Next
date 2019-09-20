@@ -29,6 +29,7 @@
 
 # Imports
 
+import contextlib
 import functools
 import io
 import os
@@ -60,6 +61,15 @@ def module_path():
     if __name__ == '__main__':
         return os.path.dirname(os.path.abspath(sys.argv[0]))
     return None
+
+
+@contextlib.contextmanager
+def blockSignalsFrom(qobject):
+    orig = qobject.blockSignals(True)
+    try:
+        yield
+    finally:
+        qobject.blockSignals(orig)
 
 
 def GetIcon(name):
@@ -484,18 +494,8 @@ class Window(QtWidgets.QMainWindow):
 
             chars = dlg.chars.text()
 
-            qfont = dlg.fontCombo.currentFont()
-            qfont.setPointSize(int(dlg.sizeCombo.currentText()))
-            if dlg.styleCombo.currentIndex() == 1:
-                qfont.setBold(True)
-            elif dlg.styleCombo.currentIndex() == 2:
-                qfont.setStyle(1)
-            elif dlg.styleCombo.currentIndex() == 3:
-                qfont.setStyle(1)
-                qfont.setBold(True)
-
             global Font
-            Font = BRFNT.generate(qfont, chars, dlg.fg, dlg.bg)
+            Font = BRFNT.generate(dlg.selectedFont(), chars, dlg.fg, dlg.bg)
 
             x = 0
             y = 0
@@ -613,13 +613,31 @@ class GenerateDialog(QtWidgets.QDialog):
         super().__init__()
         self.setWindowTitle('Generate a Font')
 
-        # Font Setting Groups
-        self.fontGroupBox = QtWidgets.QGroupBox('Font Generation')
+        # Font and style group box
+        fontGroupBox = QtWidgets.QGroupBox('Font and Style')
 
         self.fontCombo = QtWidgets.QFontComboBox()
         self.sizeCombo = QtWidgets.QComboBox()
-        self.styleCombo = QtWidgets.QComboBox()
-        self.chars = QtWidgets.QLineEdit()
+        self.weightValue = QtWidgets.QSpinBox()
+        self.italicCheckbox = QtWidgets.QCheckBox('Italic')
+
+        self.findSizes(self.fontCombo.currentFont())
+
+        self.weightValue.setMaximum(99)
+        self.weightValue.setValue(50)
+
+        self.fontCombo.currentFontChanged.connect(self.findSizes)
+
+        fontLayout = QtWidgets.QFormLayout(fontGroupBox)
+        fontLayout.addRow('Font:', self.fontCombo)
+        fontLayout.addRow('Size:', self.sizeCombo)
+        fontLayout.addRow('Weight:', self.weightValue)
+        fontLayout.addRow('', QtWidgets.QLabel('<small>Default is 50. Bold is 75. <a href="https://doc.qt.io/qt-5/qfont.html#Weight-enum">More information.</a></small>'))
+        fontLayout.addRow(self.italicCheckbox)
+
+        # Colors group box
+        colorsGroupBox = QtWidgets.QGroupBox('Colors')
+
         self.fgLabel = QtWidgets.QLabel()
         self.bgLabel = QtWidgets.QLabel()
         fgBtn = QtWidgets.QPushButton('Choose...')
@@ -632,44 +650,39 @@ class GenerateDialog(QtWidgets.QDialog):
         self.fgLabel.setPixmap(fg)
         self.bgLabel.setPixmap(bg)
 
-        self.chars.setText(''.join([chr(x) for x in range(0x20, 0x7F)]))
-
-        colorlayout = QtWidgets.QGridLayout()
-        colorlayout.addWidget(QtWidgets.QLabel('Foreground:'), 0, 0)
-        colorlayout.addWidget(QtWidgets.QLabel('Background:'), 0, 1)
-        colorlayout.addWidget(self.fgLabel, 1, 0)
-        colorlayout.addWidget(self.bgLabel, 1, 1)
-        colorlayout.addWidget(fgBtn, 2, 0)
-        colorlayout.addWidget(bgBtn, 2, 1)
-
-        fontlayout = QtWidgets.QGridLayout()
-        fontlayout.addWidget(QtWidgets.QLabel('Font:'), 0, 0, 1, 1, Qt.AlignRight)
-        fontlayout.addWidget(self.fontCombo, 0, 1, 1, 3)
-        fontlayout.addWidget(QtWidgets.QLabel('Size:'), 1, 0, 1, 1, Qt.AlignRight)
-        fontlayout.addWidget(self.sizeCombo, 1, 1, 1, 1)
-        fontlayout.addWidget(QtWidgets.QLabel('Style:'), 1, 2, 1, 1, Qt.AlignRight)
-        fontlayout.addWidget(self.styleCombo, 1, 3, 1, 1)
-        fontlayout.addWidget(QtWidgets.QLabel('Characters:'), 2, 0, 1, 1, Qt.AlignRight)
-        fontlayout.addWidget(self.chars, 2, 1, 1, 3)
-        fontlayout.addWidget(QtWidgets.QLabel('Colors:'), 3, 0, 1, 1, Qt.AlignRight)
-        fontlayout.addLayout(colorlayout, 3, 1, 1, 3)
-        self.fontGroupBox.setLayout(fontlayout)
-
-        self.styleCombo.addItems(['Normal', 'Bold', 'Italic', 'Bold Italic'])
-        self.findSizes(self.fontCombo.currentFont())
-
         fgBtn.clicked.connect(self.fgBtnClick)
         bgBtn.clicked.connect(self.bgBtnClick)
 
+        fgLayout = QtWidgets.QHBoxLayout()
+        fgLayout.addWidget(self.fgLabel)
+        fgLayout.addWidget(fgBtn)
+        bgLayout = QtWidgets.QHBoxLayout()
+        bgLayout.addWidget(self.bgLabel)
+        bgLayout.addWidget(bgBtn)
+
+        colorsLayout = QtWidgets.QFormLayout(colorsGroupBox)
+        colorsLayout.addRow('Foreground:', fgLayout)
+        colorsLayout.addRow('Background:', bgLayout)
+
+        # Characters group box
+        charsGroupBox = QtWidgets.QGroupBox('Characters')
+
+        self.chars = QtWidgets.QLineEdit()
+        self.chars.setText(''.join([chr(x) for x in range(0x20, 0x7F)]))
+
+        charsLayout = QtWidgets.QVBoxLayout(charsGroupBox)
+        charsLayout.addWidget(self.chars)
+
+        # Button box and overall layout
         buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
 
-        Layout = QtWidgets.QVBoxLayout()
-        Layout.addWidget(self.fontGroupBox)
-        Layout.addWidget(buttonBox)
-
-        self.setLayout(Layout)
+        L = QtWidgets.QGridLayout(self)
+        L.addWidget(fontGroupBox, 0, 0)
+        L.addWidget(colorsGroupBox, 0, 1)
+        L.addWidget(charsGroupBox, 1, 0, 1, 2)
+        L.addWidget(buttonBox, 2, 0, 1, 2)
 
 
     def findSizes(self, font):
@@ -678,19 +691,27 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         fontDatabase = QtGui.QFontDatabase()
         currentSize = self.sizeCombo.currentText()
-        self.sizeCombo.blockSignals(True)
-        self.sizeCombo.clear()
 
-        if fontDatabase.isSmoothlyScalable(font.family(), fontDatabase.styleString(font)):
-            for size in QtGui.QFontDatabase.standardSizes():
-                self.sizeCombo.addItem(str(size))
+        with blockSignalsFrom(self.sizeCombo):
+            self.sizeCombo.clear()
+
+            if fontDatabase.isSmoothlyScalable(font.family(), fontDatabase.styleString(font)):
                 self.sizeCombo.setEditable(True)
-        else:
-            for size in fontDatabase.smoothSizes(font.family(), fontDatabase.styleString(font)):
-                self.sizeCombo.addItem(str(size))
+
+                for size in QtGui.QFontDatabase.standardSizes():
+                    self.sizeCombo.addItem(str(size))
+
+            else:
                 self.sizeCombo.setEditable(False)
 
-        self.sizeCombo.blockSignals(False)
+                addedAny = False
+                for size in fontDatabase.smoothSizes(font.family(), fontDatabase.styleString(font)):
+                    self.sizeCombo.addItem(str(size))
+                    addedAny = True
+
+                if not addedAny:
+                    for size in QtGui.QFontDatabase.standardSizes():
+                        self.sizeCombo.addItem(str(size))
 
         sizeIndex = self.sizeCombo.findText(currentSize)
         if sizeIndex == -1:
@@ -745,6 +766,18 @@ class GenerateDialog(QtWidgets.QDialog):
         bg = QtGui.QPixmap(48, 24)
         bg.fill(self.bg)
         self.bgLabel.setPixmap(bg)
+
+
+    def selectedFont(self):
+        """
+        Return a QFont representing the font the user selected, with
+        appropriate point size and styling options.
+        """
+        font = self.fontCombo.currentFont()
+        font.setPointSize(int(self.sizeCombo.currentText()))
+        font.setWeight(self.weightValue.value())
+        font.setItalic(self.italicCheckbox.isChecked())
+        return font
 
 
 
