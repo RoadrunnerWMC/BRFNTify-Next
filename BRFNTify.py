@@ -1125,21 +1125,20 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         lyt.addRow('Texture Width:', self.charWidthEdit)
         lyt.addRow('Effective Width:', self.fullWidthEdit)
 
-        mainLyt = QtWidgets.QGridLayout()
-        mainLyt.addLayout(toplyt, 0, 0)
-        mainLyt.addLayout(lyt, 1, 0)
-        mainLyt.addWidget(horzA, 2, 0)
-        mainLyt.addWidget(self.moveL, 3, 0)
-        mainLyt.addWidget(self.moveR, 4, 0)
-        mainLyt.addWidget(horzB, 5, 0)
-        mainLyt.addWidget(self.delete, 6, 0)
-        mainLyt.addWidget(horzC, 7, 0)
-        mainLyt.addWidget(self.copy, 8, 0)
-        mainLyt.setRowStretch(9, 1)
-
         w = QtWidgets.QWidget()
-        w.setLayout(mainLyt)
         self.setWidget(w)
+
+        L = QtWidgets.QVBoxLayout(w)
+        L.addLayout(toplyt)
+        L.addLayout(lyt)
+        L.addWidget(horzA)
+        L.addWidget(self.moveL)
+        L.addWidget(self.moveR)
+        L.addWidget(horzB)
+        L.addWidget(self.delete)
+        L.addWidget(horzC)
+        L.addWidget(self.copy)
+        L.addStretch()
 
         self.setWindowTitle('Character Metrics')
 
@@ -1285,17 +1284,17 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         scrl.setWidget(self.prevWidget)
         scrl.setWidgetResizable(True)
 
-        lyt = QtWidgets.QGridLayout()
-        lyt.addWidget(self.textEdit, 0, 0)
-        lyt.addWidget(scrl, 0, 1)
-        lyt.setColumnStretch(1, 1)
+        w = QtWidgets.QWidget()
+        self.setWidget(w)
+
+        lyt = QtWidgets.QHBoxLayout(w)
+        lyt.addWidget(self.textEdit)
+        lyt.addWidget(scrl)
+        lyt.setStretchFactor(scrl, 1)
         lyt.setContentsMargins(0,0,0,0)
         lyt.setSpacing(0)
 
-        w = QtWidgets.QWidget()
-        w.setLayout(lyt)
-        self.setWidget(w)
-        self.setMinimumHeight(96)
+        self.setMinimumHeight(124)
 
         self.setWindowTitle('T. Preview')
 
