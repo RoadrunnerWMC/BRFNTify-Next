@@ -482,7 +482,7 @@ class Window(QtWidgets.QMainWindow):
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Create a bunch of glyphs, I guess.
 
-            chars = dlg.charrange.text()
+            chars = dlg.chars.text()
 
             qfont = dlg.fontCombo.currentFont()
             qfont.setPointSize(int(dlg.sizeCombo.currentText()))
@@ -619,7 +619,7 @@ class GenerateDialog(QtWidgets.QDialog):
         self.fontCombo = QtWidgets.QFontComboBox()
         self.sizeCombo = QtWidgets.QComboBox()
         self.styleCombo = QtWidgets.QComboBox()
-        self.charrange = QtWidgets.QLineEdit()
+        self.chars = QtWidgets.QLineEdit()
         self.fgLabel = QtWidgets.QLabel()
         self.bgLabel = QtWidgets.QLabel()
         fgBtn = QtWidgets.QPushButton('Choose...')
@@ -647,8 +647,8 @@ class GenerateDialog(QtWidgets.QDialog):
         fontlayout.addWidget(self.sizeCombo, 1, 1, 1, 1)
         fontlayout.addWidget(QtWidgets.QLabel('Style:'), 1, 2, 1, 1, Qt.AlignRight)
         fontlayout.addWidget(self.styleCombo, 1, 3, 1, 1)
-        fontlayout.addWidget(QtWidgets.QLabel('Character Range:'), 2, 0, 1, 1, Qt.AlignRight)
-        fontlayout.addWidget(self.charrange, 2, 1, 1, 3)
+        fontlayout.addWidget(QtWidgets.QLabel('Characters:'), 2, 0, 1, 1, Qt.AlignRight)
+        fontlayout.addWidget(self.chars, 2, 1, 1, 3)
         fontlayout.addWidget(QtWidgets.QLabel('Colors:'), 3, 0, 1, 1, Qt.AlignRight)
         fontlayout.addLayout(colorlayout, 3, 1, 1, 3)
         self.fontGroupBox.setLayout(fontlayout)
