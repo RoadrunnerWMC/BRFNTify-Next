@@ -772,8 +772,8 @@ class Glyph(QtWidgets.QGraphicsItem):
         Get the glyph's value in the given encoding
         """
         b = self.char.encode(encoding, 'replace')
-        if len(b) == 1: b = b'\0' + b
-        return struct.unpack_from('>H', b)[0]
+        while len(b) < 4: b = b'\0' + b
+        return struct.unpack_from('>I', b)[0]
 
 
     def updateToolTip(self, encoding):
