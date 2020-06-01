@@ -1076,7 +1076,7 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         glyphFont = QtGui.QFont()
         glyphFont.setPointSize(22)
         glyphNameFont = QtGui.QFont()
-        glyphNameFont.setPointSize(glyphNameFont.pointSize() * .95)
+        glyphNameFont.setPointSize(int(glyphNameFont.pointSize() * .95))
 
         self.glyphLabel = QtWidgets.QLabel()
         self.glyphLabel.setFont(glyphFont)
