@@ -1147,7 +1147,14 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         """
         Update the info for the currently selected glyph
         """
-        glyphs = window.brfntScene.selectedItems()
+
+        try:
+            glyphs = window.brfntScene.selectedItems()
+        except RuntimeError:
+            # must catch this error: if you close the app while something is selected,
+            # you get a RuntimeError about the "underlying C++ object being deleted"
+            return
+
         if len(glyphs) != 1:
             self.value = None
             self.glyphLabel.setText('')
