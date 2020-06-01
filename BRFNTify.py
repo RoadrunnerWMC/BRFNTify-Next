@@ -715,7 +715,7 @@ class GenerateDialog(QtWidgets.QDialog):
 
         sizeIndex = self.sizeCombo.findText(currentSize)
         if sizeIndex == -1:
-            self.sizeCombo.setCurrentIndex(max(0, self.sizeCombo.count() / 3))
+            self.sizeCombo.setCurrentIndex(max(0, self.sizeCombo.count() // 3))
         else:
             self.sizeCombo.setCurrentIndex(sizeIndex)
 
