@@ -1620,7 +1620,7 @@ class BRFNT:
             newpct = decoder.progress
             totalPct = (SingleTex.index(tex) / len(SingleTex)) + (newpct / len(SingleTex))
             totalPct *= 100
-            prog.setValue(totalPct)
+            prog.setValue(int(totalPct))
             prog.update()
 
         for tex in SingleTex:
