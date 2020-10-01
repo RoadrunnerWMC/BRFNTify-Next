@@ -193,6 +193,7 @@ class Window(QtWidgets.QMainWindow):
         self.CreateAction('exportasimg', self.HandleExportAsImage, None, '&Export as Image...', 'Export all characters as an image', 'Ctrl+E')
         self.CreateAction('importfromimg', self.HandleImportFromImage, None, '&Import from Image...', 'Import all characters from an image', 'Ctrl+I')
         self.CreateAction('generate', self.HandleGenerate, None, '&Generate', 'Generate a font from one installed on your computer', 'Ctrl+G')
+        self.SetOutputEnabled(False)
         # Dock show/hide actions are created later
         self.CreateAction('leading', self.HandleLeading, GetIcon('leading'), '&Leading', 'Show or hide leading lines (the height of each line of text)', 'Ctrl+1')
         self.CreateAction('ascent', self.HandleAscent, GetIcon('ascent'), '&Ascent', 'Show or hide ascent lines (the height of capital letters)', 'Ctrl+2')
@@ -291,6 +292,16 @@ class Window(QtWidgets.QMainWindow):
         self.actions[shortname] = act
 
 
+    def SetOutputEnabled(self, enabled):
+        """
+        Enables or disables Save, Save As, Export and Import.
+        """
+        self.actions['save'].setEnabled(enabled)
+        self.actions['saveas'].setEnabled(enabled)
+        self.actions['exportasimg'].setEnabled(enabled)
+        self.actions['importfromimg'].setEnabled(enabled)
+
+
     def sizeHint(self):
         """
         Size hint
@@ -377,6 +388,7 @@ class Window(QtWidgets.QMainWindow):
 
             self.savename = fn
             self.setWindowTitle('BRFNTify Next - %s' % fn.replace('\\', '/').split('/')[-1])
+            self.SetOutputEnabled(True)
 
         except Exception as e:
             self.ShowErrorBox('An error occured while trying to load this file. Please refer to the information below for more details.')
@@ -551,6 +563,7 @@ class Window(QtWidgets.QMainWindow):
             self.view.updateLayout()
 
             self.setWindowTitle('BRFNTify Next - untitled')
+            self.SetOutputEnabled(True)
 
 
 
