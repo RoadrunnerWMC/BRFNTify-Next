@@ -190,6 +190,8 @@ class Window(QtWidgets.QMainWindow):
         self.CreateAction('open', self.HandleOpen, GetIcon('open'), '&Open...', 'Open a font file', QtGui.QKeySequence.Open)
         self.CreateAction('save', self.HandleSave, GetIcon('save'), '&Save', 'Save the font file', QtGui.QKeySequence.Save)
         self.CreateAction('saveas', self.HandleSaveAs, GetIcon('saveas'), 'Save &as...', 'Save the font file to a new filename', QtGui.QKeySequence.SaveAs)
+        self.CreateAction('exportasimg', self.HandleExportAsImage, None, '&Export as Image...', 'Export all characters as an image', 'Ctrl+E')
+        self.CreateAction('importfromimg', self.HandleImportFromImage, None, '&Import from Image...', 'Import all characters from an image', 'Ctrl+I')
         self.CreateAction('generate', self.HandleGenerate, None, '&Generate', 'Generate a font from one installed on your computer', 'Ctrl+G')
         # Dock show/hide actions are created later
         self.CreateAction('leading', self.HandleLeading, GetIcon('leading'), '&Leading', 'Show or hide leading lines (the height of each line of text)', 'Ctrl+1')
@@ -222,6 +224,9 @@ class Window(QtWidgets.QMainWindow):
         self.fileMenu.addAction(self.actions['open'])
         self.fileMenu.addAction(self.actions['save'])
         self.fileMenu.addAction(self.actions['saveas'])
+        self.fileMenu.addSeparator()
+        self.fileMenu.addAction(self.actions['exportasimg'])
+        self.fileMenu.addAction(self.actions['importfromimg'])
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.actions['generate'])
         m.addMenu(self.fileMenu)
@@ -400,6 +405,31 @@ class Window(QtWidgets.QMainWindow):
         self.savename = fn
 
         self.HandleSave()
+
+
+    def HandleExportAsImage(self):
+        """
+        Export all character graphics as an image
+        """
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a PNG file', '', 'PNG image file (*.png);;All Files(*)')[0]
+        if not fn: return
+
+        Font.exportImage().save(fn)
+
+
+    def HandleImportFromImage(self):
+        """
+        Import all character graphics from an image
+        """
+        fn = QtWidgets.QFileDialog.getOpenFileName(self, 'Choose a PNG file', '', 'PNG image file (*.png);;All Files(*)')[0]
+        if not fn: return
+
+        try: pix = QtGui.QImage(fn)
+        except: return
+
+        Font.importImage(pix)
+        self.update()
+        self.prevDock.updatePreview()
 
 
     def Save(self):
@@ -1944,6 +1974,57 @@ class BRFNT:
             yield 2, 0, 0xFFFF, entries
 
 
+    def getExportedImageMetrics(self):
+        """
+        Calculate the size and rows/columns that an image export of this
+        font should use.
+        """
+        CHARS_PER_ROW = 16
+        numRows = (len(self.glyphs) + CHARS_PER_ROW - 1) // CHARS_PER_ROW
+        texWidth = self.cellWidth * CHARS_PER_ROW
+        texHeight = self.cellHeight * numRows
+
+        return texWidth, texHeight, numRows, CHARS_PER_ROW
+
+
+    def exportImage(self):
+        """
+        Return a QImage with all of the character images
+        """
+        texWidth, texHeight, rows, columns = self.getExportedImageMetrics()
+
+        tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
+        tex.fill(QtCore.Qt.transparent)
+        texP = QtGui.QPainter(tex)
+
+        for i, g in enumerate(self.glyphs):
+            x = i % columns
+            y = i // columns
+            texP.drawPixmap(x * self.cellWidth, y * self.cellHeight, g.pixmap)
+
+        del texP
+        return tex
+
+
+    def importImage(self, image):
+        """
+        Import a QImage over all of the character images
+        """
+        texWidth, texHeight, rows, columns = self.getExportedImageMetrics()
+
+        if image.width() != texWidth or image.height() != texHeight:
+            QtWidgets.QMessageBox.warning(window, 'Import from Image', "This image has the wrong dimensions for this font. It's %dx%d, but it should be %dx%d. (Each character should be %dx%d.)" % (image.width(), image.height(), texWidth, texHeight, self.cellWidth, self.cellHeight))
+            return
+
+        for i, g in enumerate(self.glyphs):
+            x = i % columns
+            y = i // columns
+
+            glyphImg = image.copy(x * self.cellWidth, y * self.cellHeight, self.cellWidth, self.cellHeight)
+            glyphPix = QtGui.QPixmap.fromImage(glyphImg)
+
+            g.pixmap = glyphPix
+            g.update()
 
 
 if __name__ == '__main__':
