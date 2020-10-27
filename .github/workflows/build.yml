@@ -2,44 +2,127 @@ name: Build
 
 on: [push]
 
+# macOS dark mode stuff is based on
+# https://github.com/pyinstaller/pyinstaller/issues/4627#issuecomment-609982803
+# and the comment linked from there
+
 jobs:
   build:
 
     strategy:
       matrix:
-        python-version: [3.8]
-        platform: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: [3.9]  # Don't forget to also change the "manual-python-version" numbers below!
+        platform: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.platform }}
 
+    env:
+      manual-python-version: 3.9  # Don't forget to also change the matrix "python-version" number above!
+      manual-python-version-full: 3.9.0
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v1
+    - name: Set environment variables (Windows/Linux)
+      if: ${{ matrix.platform == 'windows-latest' || matrix.platform == 'ubuntu-latest' }}
+      shell: bash
+      run: echo "PYTHON_CMD=python" >> $GITHUB_ENV
+    - name: Set environment variables (macOS)
+      if: ${{ matrix.platform == 'macos-latest' }}
+      run: echo "PYTHON_CMD=./python3" >> $GITHUB_ENV
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Cache Python build (macOS)
+      id: caching
+      if: ${{ matrix.platform == 'macos-latest' }}
+      uses: actions/cache@v2
+      with:
+        path: |
+          ./python
+          ./python-framework
+          ~/Library/Python/${{ env.manual-python-version }}
+        key: macos-python-${{ env.manual-python-version-full }}
+    - name: Download Python (macOS, cache miss)
+      if: ${{ matrix.platform == 'macos-latest' && !steps.caching.outputs.cache-hit }}
+      run: |
+        # Do all this in a "python" subfolder
+        mkdir python && cd python
+        # Download Python source and unzip into /src subfolder
+        curl -o Python.tar.xz https://www.python.org/ftp/python/${{ env.manual-python-version-full }}/Python-${{ env.manual-python-version-full }}.tar.xz
+        mkdir src
+        tar -xf Python.tar.xz -C ./src
+        # All the source code is annoyingly in e.g. /src/Python-3.9.0/ or similar, so let's
+        # move it all up by two directories in a subfolder-name-agnostic way
+        cd src
+        cd *
+        mv ./* ../../
+    - name: Build Python (macOS, cache miss)
+      if: ${{ matrix.platform == 'macos-latest' && !steps.caching.outputs.cache-hit }}
+      run: |
+        cd python
+        mkdir build
+        brew install openssl
+        export MACOSX_DEPLOYMENT_TARGET=10.13
+        ./configure --enable-optimizations --enable-framework --with-openssl=$(brew --prefix openssl) "--prefix=$(pwd)/build"
+        make -j2
+        sudo make install
+        cd ..
+    - name: Copy Python for caching (macOS, cache miss)
+      if: ${{ matrix.platform == 'macos-latest' && !steps.caching.outputs.cache-hit }}
+      run: cp -r /Library/Frameworks/Python.framework/Versions/${{ env.manual-python-version }} ./python-framework
+    - name: Un-copy Python from cache (macOS, cache hit)
+      if: ${{ matrix.platform == 'macos-latest' && steps.caching.outputs.cache-hit }}
+      run: |
+        sudo mkdir /Library/Frameworks/Python.framework
+        sudo mkdir /Library/Frameworks/Python.framework/Versions
+        sudo cp -r ./python-framework /Library/Frameworks/Python.framework/Versions/${{ env.manual-python-version }}
+    - name: Make Python symlink (macOS)
+      if: ${{ matrix.platform == 'macos-latest' }}
+      run: ln -s ./python/build/bin/python3 ./python3
+    - name: Set up Python (Windows/Linux)
+      if: ${{ matrix.platform == 'windows-latest' || matrix.platform == 'ubuntu-latest' }}
+      uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+    - name: Install dependencies other than PyInstaller
+      shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install wheel
-        pip install PyQt5 PyInstaller nsmblib
+        $PYTHON_CMD -m pip install --upgrade pip
+        $PYTHON_CMD -m pip install wheel
+        $PYTHON_CMD -m pip install PyQt5 nsmblib
+    - name: Install PyInstaller (Windows/Linux)
+      if: ${{ matrix.platform == 'windows-latest' || matrix.platform == 'ubuntu-latest' }}
+      shell: bash
+      run: |
+        $PYTHON_CMD -m pip install PyInstaller
+    - name: Build and install PyInstaller (macOS, cache miss)
+      if: ${{ matrix.platform == 'macos-latest' && !steps.caching.outputs.cache-hit }}
+      run: |
+        git clone https://github.com/pyinstaller/pyinstaller
+        cd pyinstaller/bootloader
+        export MACOSX_DEPLOYMENT_TARGET=10.13
+        export CFLAGS=-mmacosx-version-min=10.13
+        export CPPFLAGS=-mmacosx-version-min=10.13
+        export LDFLAGS=-mmacosx-version-min=10.13
+        export LINKFLAGS=-mmacosx-version-min=10.13
+        ../.././python3 ./waf all
+        cd ..
+        .././python3 -m pip install .
     - name: Build
-      run: |
-        python -OO build_release.py
-    - name: Tar (Linux/Mac)
+      shell: bash
+      run: $PYTHON_CMD -OO build_release.py
+    - name: Tar (macOS/Linux)
+      if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
       run: |
         cd distrib
         tar -czvf ../build-${{ matrix.platform }}.tar.gz ./*
         cd ..
-      if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
-    - name: Upload artifacts (Linux/Mac)
-      uses: actions/upload-artifact@v2
-      with:
-        name: build-${{ matrix.platform }}
-        path: build-${{ matrix.platform }}.tar.gz
-      if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
-    - name: Upload artifacts (Win)
+    - name: Upload artifacts (Windows)
+      if: ${{ matrix.platform == 'windows-latest' }}
       uses: actions/upload-artifact@v2
       with:
         name: build-${{ matrix.platform }}
         path: distrib/*
-      if: ${{ matrix.platform == 'windows-latest' }}
+    - name: Upload artifacts (macOS/Linux)
+      if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-${{ matrix.platform }}
+        path: build-${{ matrix.platform }}.tar.gz

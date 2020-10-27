@@ -17,6 +17,7 @@ import PyInstaller.__main__
 # etc)
 
 PROJECT_NAME = 'BRFNTify'
+FULL_PROJECT_NAME = 'BRFNTify Font Editor'
 PROJECT_VERSION = '1.0'
 
 WIN_ICON = None
@@ -26,6 +27,10 @@ MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.brfntify'
 SCRIPT_FILE = 'BRFNTify.py'
 DATA_FOLDERS = ['data']
 DATA_FILES = ['readme.md', 'license.txt', 'format.txt']
+
+# macOS only
+AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
+FINAL_APP_BUNDLE_NAME = FULL_PROJECT_NAME + '.app'
 
 
 ########################################################################
@@ -114,11 +119,11 @@ print('>>')
 print('>> Populating excludes and includes...')
 print('>>')
 
-# Static excludes
-excludes = ['calendar', 'difflib', 'doctest', 'hashlib', 'inspect',
+# Excludes
+excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'hashlib', 'inspect',
     'locale', 'multiprocessing', 'optpath', 'os2emxpath', 'pdb',
-    'select', 'socket', 'ssl', 'threading', 'unittest']
-includes = ['pkgutil']
+    'select', 'socket', 'ssl', 'threading', 'unittest',
+    'FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter']
 
 if sys.platform == 'nt':
     excludes.append('posixpath')
@@ -144,8 +149,50 @@ for qt in ['PySide2', 'PyQt4', 'PyQt5']:
         for m in neededQtModules:
             excludes.append(qt + '.Qt' + m)
 
+# Includes
+includes = ['pkgutil']
+
+# Binary excludes
+excludes_binaries = []
+if sys.platform == 'win32':
+    excludes_binaries = [
+        # Qt stuff
+        'Qt5Network.dll', 'Qt5Qml.dll', 'Qt5QmlModels.dll',
+        'Qt5Quick.dll', 'Qt5WebSockets.dll',
+        # Other stuff
+        'opengl32sw.dll',
+        'd3dcompiler_',  # currently (2020-09-25) "d3dcompiler_47.dll",
+                         # but that'll probably change eventually, so we
+                         # just exclude anything that starts with this
+                         # substring
+    ]
+
+elif sys.platform == 'darwin':
+    # Sadly, we can't exclude anything on macOS -- it just crashes. :(
+    # If a workaround could be found, here's the list we'd use:
+    # excludes_binaries = [
+    #     # Qt stuff (none of these have any file extensions at all)
+    #     'QtNetwork', 'QtPrintSupport', 'QtQml', 'QtQmlModels',
+    #     'QtQuick', 'QtWebSockets',
+    # ]
+    pass
+
+elif sys.platform == 'linux':
+    excludes_binaries = [
+        # Qt stuff
+        # Currently (2020-09-25) these all end with ".so.5", but that
+        # may change, so we exclude anything that starts with these
+        # substrings
+        'libQt5Network.so', 'libQt5Qml.so', 'libQt5QmlModels.so',
+        'libQt5Quick.so', 'libQt5WebSockets.so',
+        # Other stuff
+        'libgtk-3.so',
+    ]
+
+
 print('>> Will use the following excludes list: ' + ', '.join(excludes))
 print('>> Will use the following includes list: ' + ', '.join(includes))
+print('>> Will use the following binaries excludes list: ' + ', '.join(excludes_binaries))
 
 
 ########################################################################
@@ -163,8 +210,9 @@ args = [
     '--workpath=' + WORKPATH,
 ]
 
-if sys.platform == 'win32' and WIN_ICON:
-    args.append('--icon=' + os.path.abspath(WIN_ICON))
+if sys.platform == 'win32':
+    if WIN_ICON:
+        args.append('--icon=' + os.path.abspath(WIN_ICON))
 elif sys.platform == 'darwin':
     if MAC_ICON:
         args.append('--icon=' + os.path.abspath(MAC_ICON))
@@ -191,8 +239,9 @@ print('>> Adjusting specfile...')
 # New plist file data (if on Mac)
 info_plist = {
     'CFBundleName': PROJECT_NAME,
+    'CFBundleDisplayName': FULL_PROJECT_NAME,
     'CFBundleShortVersionString': PROJECT_VERSION,
-    'CFBundleGetInfoString': PROJECT_NAME + ' ' + PROJECT_VERSION,
+    'CFBundleGetInfoString': FULL_PROJECT_NAME + ' ' + PROJECT_VERSION,
     'CFBundleExecutable': SCRIPT_FILE.split('.')[0],
 }
 
@@ -203,6 +252,18 @@ with open(SPECFILE, 'r', encoding='utf-8') as f:
 # Iterate over its lines, and potentially add new ones
 new_lines = []
 for line in lines:
+    if 'PYZ(' in line and excludes_binaries:
+        new_lines.append('EXCLUDES = ' + repr(excludes_binaries))
+        new_lines.append('new_binaries = []')
+        new_lines.append('for x, y, z in a.binaries:')
+        new_lines.append('    for e in EXCLUDES:')
+        new_lines.append('        if x.startswith(e):')
+        new_lines.append('            print("specfile: excluding " + x)')
+        new_lines.append('            break')
+        new_lines.append('    else:')
+        new_lines.append('        new_binaries.append((x, y, z))')
+        new_lines.append('a.binaries = new_binaries')
+
     new_lines.append(line)
 
     if sys.platform == 'darwin' and 'BUNDLE(' in line:
@@ -211,6 +272,7 @@ for line in lines:
 # Save new specfile
 with open(SPECFILE, 'w', encoding='utf-8') as f:
     f.write('\n'.join(new_lines))
+
 
 
 ########################################################################
@@ -239,8 +301,7 @@ os.remove(SPECFILE)
 print('>> Copying required files...')
 
 if sys.platform == 'darwin':
-    app_bundle_name = SCRIPT_FILE.split('.')[0] + '.app'
-    dest_folder = os.path.join(DIR, app_bundle_name, 'Contents', 'Resources')
+    dest_folder = os.path.join(DIR, AUTO_APP_BUNDLE_NAME, 'Contents', 'Resources')
 else:
     dest_folder = DIR
 
@@ -266,6 +327,12 @@ if sys.platform == 'darwin':
     leftover_executable = os.path.join(DIR, SCRIPT_FILE.split('.')[0])
     if os.path.isfile(leftover_executable):
         os.unlink(leftover_executable)
+
+# Also on macOS, we have to rename the .app folder to the display name
+# because CFBundleDisplayName is dumb and doesn't actually affect
+# the app name shown in Finder
+if sys.platform == 'darwin':
+    os.rename(os.path.join(DIR, AUTO_APP_BUNDLE_NAME), os.path.join(DIR, FINAL_APP_BUNDLE_NAME))
 
 
 ########################################################################
