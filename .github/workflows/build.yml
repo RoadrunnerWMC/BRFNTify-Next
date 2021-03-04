@@ -167,7 +167,7 @@ jobs:
       if: ${{ runner.os == 'macOS' || runner.os == 'Linux' }}
       run: |
         cd distrib
-        tar -czvf ../build-${{ matrix.file-name }}.tar.gz ./*
+        tar -czvf ../${{ matrix.file-name }}.tar.gz ./*
         cd ..
     - name: Upload artifacts (Windows)
       if: ${{ runner.os == 'Windows' }}
