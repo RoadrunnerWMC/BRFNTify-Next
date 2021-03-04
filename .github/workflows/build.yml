@@ -121,7 +121,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
         architecture: ${{ matrix.arch }}
     - name: Install dependencies other than PyInstaller and PyQt5
-      if: ${{ !matrix.force-pyqt-5132 }}
       shell: bash
       run: |
         $PYTHON_CMD -m pip install --upgrade pip
