@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# -*- coding: latin-1 -*-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 # BRFNTify - Editor for Nintendo BRFNT font files
 # Version Next Beta 1
