@@ -19,6 +19,7 @@ jobs:
             arch: 'x64'
             macos-custom-python: false
             force-pyqt-5132: false
+            force-pyinst-40: false
           - build-name: 'Windows 8.1+ 32-bit'
             file-name: 'windows-32'
             python-version: 3.9
@@ -26,6 +27,7 @@ jobs:
             arch: 'x86'
             macos-custom-python: false
             force-pyqt-5132: false
+            force-pyinst-40: false
           - build-name: 'Windows 7'
             file-name: 'windows7'
             python-version: 3.8
@@ -33,6 +35,7 @@ jobs:
             arch: 'x86'
             macos-custom-python: false
             force-pyqt-5132: false
+            force-pyinst-40: false
           - build-name: 'macOS High Sierra'
             file-name: 'macos-high-sierra'
             python-version: 3.9
@@ -40,13 +43,15 @@ jobs:
             arch: 'x64'
             macos-custom-python: true
             force-pyqt-5132: false
+            force-pyinst-40: false
           - build-name: 'macOS Sierra'
             file-name: 'macos-sierra'
-            python-version: 3.9
+            python-version: 3.7
             platform: macos-latest
             arch: 'x64'
             macos-custom-python: false
             force-pyqt-5132: true
+            force-pyinst-40: true
           - build-name: 'Ubuntu'
             file-name: 'ubuntu'
             python-version: 3.9
@@ -54,6 +59,7 @@ jobs:
             arch: 'x64'
             macos-custom-python: false
             force-pyqt-5132: false
+            force-pyinst-40: false
 
     name: ${{ matrix.build-name }}
 
@@ -142,11 +148,16 @@ jobs:
       shell: bash
       run: |
         $PYTHON_CMD -m pip install PyQt5==5.13.2
-    - name: Install PyInstaller (Windows / Linux / Sierra)
-      if: ${{ !matrix.macos-custom-python }}
+    - name: Install PyInstaller latest (Windows / Linux)
+      if: ${{ !matrix.macos-custom-python && !matrix.force-pyinst-40 }}
       shell: bash
       run: |
         $PYTHON_CMD -m pip install PyInstaller
+    - name: Install PyInstaller 4.0 (Sierra)
+      if: ${{ matrix.force-pyinst-40 }}
+      shell: bash
+      run: |
+        $PYTHON_CMD -m pip install PyInstaller==4.0
     - name: Build and install PyInstaller (macOS latest, cache miss)
       if: ${{ matrix.macos-custom-python && !steps.caching.outputs.cache-hit }}
       run: |
