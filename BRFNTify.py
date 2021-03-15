@@ -38,7 +38,7 @@ import sys
 import traceback
 import unicodedata
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
 import TPLLib
@@ -99,7 +99,7 @@ def createHorzLine():
     Helper to create a horizontal line widget
     """
     f = QtWidgets.QFrame()
-    f.setFrameStyle(QtWidgets.QFrame.HLine | QtWidgets.QFrame.Sunken)
+    f.setFrameStyle(QtWidgets.QFrame.Shape.HLine | QtWidgets.QFrame.Shadow.Sunken)
     return f
 
 
@@ -181,16 +181,16 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowIcon(ico)
 
         self.fontDock = FontMetricsDock(self)
-        self.fontDock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.fontDock.setAllowedAreas(Qt.DockWidgetAreas.LeftDockWidgetArea | Qt.DockWidgetAreas.RightDockWidgetArea)
         self.charDock = CharMetricsDock(self)
-        self.charDock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.charDock.setAllowedAreas(Qt.DockWidgetAreas.LeftDockWidgetArea | Qt.DockWidgetAreas.RightDockWidgetArea)
         self.prevDock = TextPreviewDock(self)
         self.prevDock.setVisible(False)
-        self.prevDock.setAllowedAreas(Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea)
-        self.prevDock.setFeatures(self.prevDock.features() | QtWidgets.QDockWidget.DockWidgetVerticalTitleBar)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.fontDock)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.charDock)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.prevDock)
+        self.prevDock.setAllowedAreas(Qt.DockWidgetAreas.TopDockWidgetArea | Qt.DockWidgetAreas.BottomDockWidgetArea)
+        self.prevDock.setFeatures(self.prevDock.features() | QtWidgets.QDockWidget.DockWidgetFeatures.DockWidgetVerticalTitleBar)
+        self.addDockWidget(Qt.DockWidgetAreas.LeftDockWidgetArea, self.fontDock)
+        self.addDockWidget(Qt.DockWidgetAreas.RightDockWidgetArea, self.charDock)
+        self.addDockWidget(Qt.DockWidgetAreas.BottomDockWidgetArea, self.prevDock)
         self.brfntScene.selectionChanged.connect(self.charDock.updateGlyph)
 
         self.CreateMenus()
@@ -202,9 +202,9 @@ class Window(QtWidgets.QMainWindow):
         """
         # create the actions
         self.actions = {}
-        self.CreateAction('open', self.HandleOpen, GetIcon('open'), '&Open...', 'Open a font file', QtGui.QKeySequence.Open)
-        self.CreateAction('save', self.HandleSave, GetIcon('save'), '&Save', 'Save the font file', QtGui.QKeySequence.Save)
-        self.CreateAction('saveas', self.HandleSaveAs, GetIcon('saveas'), 'Save &as...', 'Save the font file to a new filename', QtGui.QKeySequence.SaveAs)
+        self.CreateAction('open', self.HandleOpen, GetIcon('open'), '&Open...', 'Open a font file', QtGui.QKeySequence.StandardKey.Open)
+        self.CreateAction('save', self.HandleSave, GetIcon('save'), '&Save', 'Save the font file', QtGui.QKeySequence.StandardKey.Save)
+        self.CreateAction('saveas', self.HandleSaveAs, GetIcon('saveas'), 'Save &as...', 'Save the font file to a new filename', QtGui.QKeySequence.StandardKey.SaveAs)
         self.CreateAction('exportasimg', self.HandleExportAsImage, None, '&Export as Image...', 'Export all characters as an image', 'Ctrl+E')
         self.CreateAction('importfromimg', self.HandleImportFromImage, None, '&Import from Image...', 'Import all characters from an image', 'Ctrl+I')
         self.CreateAction('generate', self.HandleGenerate, None, '&Generate', 'Generate a font from one installed on your computer', 'Ctrl+G')
@@ -294,9 +294,9 @@ class Window(QtWidgets.QMainWindow):
         """
 
         if icon is not None:
-            act = QtWidgets.QAction(icon, text, self)
+            act = QtGui.QAction(icon, text, self)
         else:
-            act = QtWidgets.QAction(text, self)
+            act = QtGui.QAction(text, self)
 
         if shortcut is not None: act.setShortcut(shortcut)
         if statustext is not None: act.setStatusTip(statustext)
@@ -339,7 +339,7 @@ class Window(QtWidgets.QMainWindow):
         txtedit = QtWidgets.QPlainTextEdit(btm)
         txtedit.setReadOnly(True)
 
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButtons.Ok)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(toplbl)
@@ -352,7 +352,7 @@ class Window(QtWidgets.QMainWindow):
         dlg.setMinimumWidth(384)
         dlg.setWindowTitle('Error')
         buttonBox.accepted.connect(dlg.accept)
-        dlg.exec_()
+        dlg.exec()
 
 
     def HandleOpen(self):
@@ -476,7 +476,7 @@ class Window(QtWidgets.QMainWindow):
         """
 
         dlg = GenerateDialog()
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+        if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             # Create a bunch of glyphs, I guess.
 
             chars = dlg.chars.text()
@@ -550,7 +550,7 @@ class Window(QtWidgets.QMainWindow):
         txtedit = QtWidgets.QPlainTextEdit(readme)
         txtedit.setReadOnly(True)
 
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButtons.Ok)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(txtedit)
@@ -562,7 +562,7 @@ class Window(QtWidgets.QMainWindow):
         dlg.setMinimumWidth(512)
         dlg.setWindowTitle('About')
         buttonBox.accepted.connect(dlg.accept)
-        dlg.exec_()
+        dlg.exec()
 
 
     zoomLevels = [20.0, 35.0, 50.0, 65.0, 80.0, 90.0, 100.0, 125.0, 150.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0]
@@ -594,8 +594,8 @@ class GenerateDialog(QtWidgets.QDialog):
     """
     Allows the user to generate a glyph table from an installed font
     """
-    fg = Qt.black
-    bg = Qt.transparent
+    fg = Qt.GlobalColor.black
+    bg = Qt.GlobalColor.transparent
 
     def __init__(self):
         super().__init__()
@@ -662,7 +662,7 @@ class GenerateDialog(QtWidgets.QDialog):
         charsLayout.addWidget(self.chars)
 
         # Button box and overall layout
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButtons.Ok | QtWidgets.QDialogButtonBox.StandardButtons.Cancel)
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
 
@@ -723,7 +723,7 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         Called when the user closes the color dialog
         """
-        if state != dlg.Accepted: return
+        if state != QtWidgets.QDialog.DialogCode.Accepted: return
 
         self.fg = dlg.currentColor()
 
@@ -747,7 +747,7 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         Called when the user closes the color dialog
         """
-        if state != dlg.Accepted: return
+        if state != QtWidgets.QDialog.DialogCode.Accepted: return
 
         self.bg = dlg.currentColor()
 
@@ -785,9 +785,9 @@ class Glyph(QtWidgets.QGraphicsItem):
         self.boundingRect = QtCore.QRectF(0,0,pixmap.width(),pixmap.height())
         self.selectionRect = QtCore.QRectF(0,0,pixmap.width()-1,pixmap.height()-1)
 
-        self.setFlag(self.ItemIsMovable, False)
-        self.setFlag(self.ItemIsSelectable, True)
-        self.setFlag(self.ItemIsFocusable, True)
+        self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlags.ItemIsMovable, False)
+        self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlags.ItemIsSelectable, True)
+        self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlags.ItemIsFocusable, True)
 
 
     def value(self, encoding):
@@ -832,7 +832,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         menu = QtWidgets.QMenu()
         menu.addAction('Import...', self.handleImport)
         menu.addAction('Export...', self.handleExport)
-        menu.exec_(e.screenPos())
+        menu.exec(e.screenPos())
 
 
     def handleExport(self):
@@ -885,7 +885,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         painter.drawPixmap(0, 0, self.pixmap)
 
         if self.isSelected():
-            painter.setPen(QtGui.QPen(Qt.blue, 1, Qt.SolidLine))
+            painter.setPen(QtGui.QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.SolidLine))
             painter.drawRect(self.selectionRect)
             painter.fillRect(self.selectionRect, QtGui.QColor.fromRgb(255, 255, 255, 64))
 
@@ -1002,7 +1002,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         scrollArea = QtWidgets.QScrollArea()
         scrollArea.setWidget(baseWidget)
         scrollArea.setWidgetResizable(True)
-        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setWidget(scrollArea)
 
 
@@ -1270,11 +1270,11 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         self.textEdit = QtWidgets.QPlainTextEdit()
         self.textEdit.setEnabled(False)
         self.textEdit.textChanged.connect(self.updatePreview)
-        self.textEdit.setWordWrapMode(QtGui.QTextOption.NoWrap)
+        self.textEdit.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.textEdit.setMinimumWidth(128)
 
         self.prevWidget = QtWidgets.QLabel()
-        self.prevWidget.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.prevWidget.setAlignment(Qt.Alignment.AlignLeft | Qt.Alignment.AlignTop)
         scrl = QtWidgets.QScrollArea()
         scrl.setWidget(self.prevWidget)
         scrl.setWidgetResizable(True)
@@ -1377,11 +1377,11 @@ class ViewWidget(QtWidgets.QGraphicsView):
         self.drawBaseline = False
         self.drawWidths = False
 
-        self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.setAlignment(Qt.Alignment.AlignLeft | Qt.Alignment.AlignTop)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor.fromRgb(119, 136, 153)))
         self.setMouseTracking(True)
-        self.YScrollBar = QtWidgets.QScrollBar(Qt.Vertical, parent)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.YScrollBar = QtWidgets.QScrollBar(Qt.Orientations.Vertical, parent)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
 
     def updateDisplay(self):
@@ -1616,7 +1616,7 @@ class BRFNT:
             decoder = TPLLib.decoder(self.texFormat)
             decoder = decoder(tex, texWidth, texHeight, handlePctUpdated)
             newdata = decoder.run()
-            dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format_ARGB32)
+            dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format.Format_ARGB32)
 
             y = 0
             for a in range(self.charsPerColumn):
@@ -1660,7 +1660,7 @@ class BRFNT:
         for c in chars:
             # make a pixmap
             rect = fontMetrics.boundingRect(c)
-            tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format_ARGB32)
+            tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format.Format_ARGB32)
             tex.fill(bgColor)
             painter = QtGui.QPainter(tex)
             painter.setPen(fgColor)
@@ -1728,7 +1728,7 @@ class BRFNT:
         for g in self.glyphs:
             if currentTexP is None:
                 # make new tex
-                tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
+                tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format.Format_ARGB32_Premultiplied)
                 tex.fill(QtCore.Qt.transparent)
                 currentTexP = QtGui.QPainter(tex)
                 texImages.append(tex)
@@ -1951,7 +1951,7 @@ class BRFNT:
         """
         texWidth, texHeight, rows, columns = self.getExportedImageMetrics()
 
-        tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
+        tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format.Format_ARGB32_Premultiplied)
         tex.fill(QtCore.Qt.transparent)
         texP = QtGui.QPainter(tex)
 
@@ -1991,9 +1991,13 @@ if __name__ == '__main__':
     if path is not None:
         os.chdir(module_path())
 
+    # The default high-dpi scaling looks really bad on my monitor
+    QtWidgets.QApplication.setHighDpiScaleFactorRoundingPolicy(
+        QtCore.Qt.HighDpiScaleFactorRoundingPolicy.RoundPreferFloor)
+
     global app, window
     app = QtWidgets.QApplication(sys.argv)
 
     window = Window()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
