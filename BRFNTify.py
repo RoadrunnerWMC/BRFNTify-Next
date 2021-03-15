@@ -1989,7 +1989,7 @@ if __name__ == '__main__':
 
     path = module_path()
     if path is not None:
-        os.chdir(module_path())
+        os.chdir(path)
 
     global app, window
     app = QtWidgets.QApplication(sys.argv)
