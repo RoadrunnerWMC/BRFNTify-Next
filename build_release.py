@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Koopatlas
 
 import json
 import os, os.path
@@ -7,33 +11,12 @@ import sys
 import PyInstaller.__main__
 
 
+
 ########################################################################
 ############################### Constants ##############################
 ########################################################################
 
-# Everything highly specific to BRFNTify is in this section, to make it
-# simpler to copypaste this script across all of the NSMBW-related
-# projects that use the same technologies (Reggie, Puzzle, BRFNTify,
-# etc)
-
-PROJECT_NAME = 'BRFNTify'
-FULL_PROJECT_NAME = 'BRFNTify Font Editor'
-PROJECT_VERSION = '1.0'
-
-WIN_ICON = None
-MAC_ICON = None
-MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.brfntify'
-
-SCRIPT_FILE = 'BRFNTify.py'
-DATA_FOLDERS = ['data']
-DATA_FILES = ['readme.md', 'license.txt', 'format.txt']
-
-EXCLUDE_SELECT = True
-EXCLUDE_THREADING = True
-
-# macOS only
-AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
-FINAL_APP_BUNDLE_NAME = FULL_PROJECT_NAME + '.app'
+import build_release_config as config
 
 
 ########################################################################
@@ -42,7 +25,7 @@ FINAL_APP_BUNDLE_NAME = FULL_PROJECT_NAME + '.app'
 
 DIR = 'distrib'
 WORKPATH = 'build_temp'
-SPECFILE = SCRIPT_FILE[:-3] + '.spec'
+SPECFILE = config.SCRIPT_FILE[:-3] + '.spec'
 
 def print_emphasis(s):
     print('>>')
@@ -51,7 +34,7 @@ def print_emphasis(s):
     print('>> ' + '=' * (len(s) - 3))
     print('>>')
 
-print('[[ Building ' + PROJECT_NAME + ' ]]')
+print('[[ Building ' + config.PROJECT_NAME + ' ]]')
 print('>> Please note: extra command-line arguments passed to this script will be passed through to PyInstaller.')
 print('>> Destination directory: ' + DIR)
 
@@ -123,15 +106,17 @@ print('>> Populating excludes and includes...')
 print('>>')
 
 # Excludes
-excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'hashlib', 'inspect',
+excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'inspect',
     'locale', 'multiprocessing', 'optpath', 'os2emxpath', 'pdb',
     'socket', 'ssl', 'unittest',
     'FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter']
 
-if EXCLUDE_SELECT:
+if config.EXCLUDE_SELECT:
     excludes.append('select')
-if EXCLUDE_THREADING:
+if config.EXCLUDE_THREADING:
     excludes.append('threading')
+if config.EXCLUDE_HASHLIB:
+    excludes.append('hashlib')
 
 if sys.platform == 'nt':
     excludes.append('posixpath')
@@ -219,19 +204,22 @@ args = [
 ]
 
 if sys.platform == 'win32':
-    if WIN_ICON:
-        args.append('--icon=' + os.path.abspath(WIN_ICON))
+    if config.WIN_ICON:
+        args.append('--icon=' + os.path.abspath(config.WIN_ICON))
 elif sys.platform == 'darwin':
-    if MAC_ICON:
-        args.append('--icon=' + os.path.abspath(MAC_ICON))
-    args.append('--osx-bundle-identifier=' + MAC_BUNDLE_IDENTIFIER)
+    if config.MAC_ICON:
+        args.append('--icon=' + os.path.abspath(config.MAC_ICON))
+    args.append('--osx-bundle-identifier=' + config.MAC_BUNDLE_IDENTIFIER)
+
+for p in config.EXTRA_IMPORT_PATHS:
+    args.append('--paths=' + p)
 
 for e in excludes:
     args.append('--exclude-module=' + e)
 for i in includes:
     args.append('--hidden-import=' + i)
 args.extend(sys.argv[1:])
-args.append(SCRIPT_FILE)
+args.append(config.SCRIPT_FILE)
 
 run_pyinstaller(args)
 
@@ -246,11 +234,11 @@ print('>> Adjusting specfile...')
 
 # New plist file data (if on Mac)
 info_plist = {
-    'CFBundleName': PROJECT_NAME,
-    'CFBundleDisplayName': FULL_PROJECT_NAME,
-    'CFBundleShortVersionString': PROJECT_VERSION,
-    'CFBundleGetInfoString': FULL_PROJECT_NAME + ' ' + PROJECT_VERSION,
-    'CFBundleExecutable': SCRIPT_FILE.split('.')[0],
+    'CFBundleName': config.PROJECT_NAME,
+    'CFBundleDisplayName': config.FULL_PROJECT_NAME,
+    'CFBundleShortVersionString': config.PROJECT_VERSION,
+    'CFBundleGetInfoString': config.FULL_PROJECT_NAME + ' ' + config.PROJECT_VERSION,
+    'CFBundleExecutable': config.SCRIPT_FILE.split('.')[0],
 }
 
 # Open original specfile
@@ -309,16 +297,16 @@ os.remove(SPECFILE)
 print('>> Copying required files...')
 
 if sys.platform == 'darwin':
-    dest_folder = os.path.join(DIR, AUTO_APP_BUNDLE_NAME, 'Contents', 'Resources')
+    dest_folder = os.path.join(DIR, config.AUTO_APP_BUNDLE_NAME, 'Contents', 'Resources')
 else:
     dest_folder = DIR
 
-for f in DATA_FOLDERS:
+for f in config.DATA_FOLDERS:
     if os.path.isdir(os.path.join(dest_folder, f)):
         shutil.rmtree(os.path.join(dest_folder, f))
     shutil.copytree(f, os.path.join(dest_folder, f))
 
-for f in DATA_FILES:
+for f in config.DATA_FILES:
     shutil.copy(f, dest_folder)
 
 
@@ -332,7 +320,7 @@ print('>> Cleaning up...')
 # delete it.
 
 if sys.platform == 'darwin':
-    leftover_executable = os.path.join(DIR, SCRIPT_FILE.split('.')[0])
+    leftover_executable = os.path.join(DIR, config.SCRIPT_FILE.split('.')[0])
     if os.path.isfile(leftover_executable):
         os.unlink(leftover_executable)
 
@@ -340,10 +328,10 @@ if sys.platform == 'darwin':
 # because CFBundleDisplayName is dumb and doesn't actually affect
 # the app name shown in Finder
 if sys.platform == 'darwin':
-    os.rename(os.path.join(DIR, AUTO_APP_BUNDLE_NAME), os.path.join(DIR, FINAL_APP_BUNDLE_NAME))
+    os.rename(os.path.join(DIR, config.AUTO_APP_BUNDLE_NAME), os.path.join(DIR, config.FINAL_APP_BUNDLE_NAME))
 
 
 ########################################################################
 ################################## End #################################
 ########################################################################
-print('>> %s has been built to the %s folder!' % (PROJECT_NAME, DIR))
+print('>> %s has been built to the %s folder!' % (config.PROJECT_NAME, DIR))
