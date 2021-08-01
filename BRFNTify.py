@@ -959,12 +959,17 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits['height'].setRange(1, 0x100)
 
         for name, e in self.edits.items():
+            def makeHandler(name):
+                def handler():
+                    self.boxChanged(name)
+                return handler
+
             if isinstance(e, QtWidgets.QComboBox):
-                e.currentIndexChanged.connect(lambda: self.boxChanged(name))
+                e.currentIndexChanged.connect(makeHandler(name))
             elif isinstance(e, QtWidgets.QSpinBox):
-                e.valueChanged.connect(lambda: self.boxChanged(name))
+                e.valueChanged.connect(makeHandler(name))
             elif isinstance(e, QtWidgets.QLineEdit):
-                e.textChanged.connect(lambda: self.boxChanged(name))
+                e.textChanged.connect(makeHandler(name))
 
         for e in self.edits.values(): e.setEnabled(False)
 
