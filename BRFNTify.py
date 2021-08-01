@@ -1323,7 +1323,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
 
             if linewidth > width: width = linewidth
 
-        height = Font.leading * (txt.count('\n') + 1)
+        height = max(0, Font.leading * (txt.count('\n') + 1))
 
         # Make the pixmap
         pix = QtGui.QPixmap(width + 4, height + 4)
