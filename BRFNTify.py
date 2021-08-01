@@ -1593,29 +1593,10 @@ class BRFNT:
             SingleTex.append(struct.unpack('>' + str(textureSize) + 'B', TPLDat[offset:textureSize+offset]))
             offset += textureSize
 
-        prog = QtWidgets.QProgressDialog(window)
-        prog.setRange(0, 100)
-        prog.setValue(0)
-        prog.setAutoClose(True)
-        prog.setWindowTitle('Loading Font')
-        strformat = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', '', 'CI4', 'CI8', 'CI14x2', '', '', '', 'CMPR'][self.texFormat]
-        prog.setLabelText('Loading font (%s format)' % (strformat,))
-        prog.open()
-
-        def handlePctUpdated():
-            """
-            Called when a Decoder object updates its percentage
-            """
-            newpct = decoder.progress
-            totalPct = (SingleTex.index(tex) / len(SingleTex)) + (newpct / len(SingleTex))
-            totalPct *= 100
-            prog.setValue(int(totalPct))
-            prog.update()
-
         for tex in SingleTex:
 
             decoder = TPLLib.decoder(self.texFormat)
-            decoder = decoder(tex, texWidth, texHeight, handlePctUpdated)
+            decoder = decoder(tex, texWidth, texHeight)
             newdata = decoder.run()
             dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format_ARGB32)
 
@@ -1626,8 +1607,6 @@ class BRFNT:
                     Images.append(QtGui.QPixmap.fromImage(dest.copy(x, y, self.cellWidth, self.cellHeight)))
                     x += self.cellWidth
                 y += self.cellHeight
-
-        prog.setValue(100)
 
 
         CMAP.sort(key=lambda x: x[0])
