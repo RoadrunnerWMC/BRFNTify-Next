@@ -166,12 +166,9 @@ class Window(QtWidgets.QMainWindow):
         super().__init__(None)
         self.savename = ''
 
-        centralWidget = QtWidgets.QWidget()
-
         self.view = ViewWidget()
 
         self.brfntScene = QtWidgets.QGraphicsScene()
-        self.systemWidget = QtWidgets.QGraphicsScene()
 
         self.setCentralWidget(self.view)
         self.setWindowTitle('BRFNTify Next')
@@ -986,7 +983,6 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         texturesLyt.addRow('Chars Per Column:', self.edits['charsPerColumn'])
         texturesLyt.addRow('Width:', self.edits['width'])
         texturesLyt.addRow('Height:', self.edits['height'])
-        # cell width / height
 
         metricsBox = QtWidgets.QGroupBox('Metrics')
         metricsLyt = QtWidgets.QFormLayout(metricsBox)
