@@ -1260,6 +1260,19 @@ class CharMetricsDock(QtWidgets.QDockWidget):
         window.prevDock.updatePreview()
 
 
+class QScrollAreaWithContextMenuSignal(QtWidgets.QScrollArea):
+    """
+    QScrollArea with a signal for context-menu events
+    """
+    contextMenuSignal = QtCore.pyqtSignal(QtGui.QContextMenuEvent)
+
+    def contextMenuEvent(self, event):
+        """
+        Handler for context menu events
+        """
+        QtWidgets.QScrollArea.contextMenuEvent(self, event)
+        self.contextMenuSignal.emit(event)
+
 
 class TextPreviewDock(QtWidgets.QDockWidget):
     """
@@ -1276,9 +1289,10 @@ class TextPreviewDock(QtWidgets.QDockWidget):
 
         self.prevWidget = QtWidgets.QLabel()
         self.prevWidget.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        scrl = QtWidgets.QScrollArea()
+        scrl = QScrollAreaWithContextMenuSignal()
         scrl.setWidget(self.prevWidget)
         scrl.setWidgetResizable(True)
+        scrl.contextMenuSignal.connect(self.handleContextMenu)
 
         w = QtWidgets.QWidget()
         self.setWidget(w)
@@ -1346,6 +1360,30 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         # Finish up
         del paint
         self.prevWidget.setPixmap(pix)
+
+    def handleContextMenu(self, event):
+        """
+        Handler for context-menu events on the scroll area
+        """
+        menu = QtWidgets.QMenu()
+
+        act = menu.addAction('Export...', self.handleExport)
+        if self.prevWidget.pixmap() is None:
+            act.setEnabled(False)
+
+        menu.exec_(event.globalPos())
+
+    def handleExport(self):
+        """
+        The user right-clicked the preview area and chose "Export..."
+        """
+        pix = self.prevWidget.pixmap()
+        if pix is None: return
+
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a PNG file', '', 'PNG image file (*.png);;All Files(*)')[0]
+        if not fn: return
+
+        pix.save(fn)
 
 
 class HexSpinBox(QtWidgets.QSpinBox):
