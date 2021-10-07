@@ -50,6 +50,9 @@ version = 'Beta 1'
 Font = None
 
 
+ENCODINGS = ['UCS-2', 'UTF-16BE', 'SJIS', 'CP1252']
+
+
 
 
 def module_path():
@@ -791,9 +794,10 @@ class Glyph(QtWidgets.QGraphicsItem):
         """
         Get the glyph's value in the given encoding
         """
-        b = self.char.encode(encoding, 'replace')
-        while len(b) < 4: b = b'\0' + b
-        return struct.unpack_from('>I', b)[0]
+        if encoding.lower() == 'ucs-2':
+            return ord(self.char)
+        else:
+            return int.from_bytes(self.char.encode(encoding, 'replace'), 'big')
 
 
     def updateToolTip(self, encoding):
@@ -907,7 +911,6 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     A dock widget that displays font-wide metrics
     """
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
-    encodingList = ['UTF-8LE', 'UTF-8BE', 'UTF-16LE', 'UTF-16BE', 'SJIS', 'CP1252', 'COUNT']
     formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
     updating = False
 
@@ -939,7 +942,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         }
 
         self.edits['fontType'].addItems(self.typeList)
-        self.edits['encoding'].addItems(self.encodingList)
+        self.edits['encoding'].addItems(ENCODINGS)
         self.edits['format'].addItems(self.formatList)
         self.edits['charsPerRow'].setMaximum(0xFFFF)
         self.edits['charsPerColumn'].setMaximum(0xFFFF)
@@ -1013,7 +1016,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         self.updating = True
         self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
-        self.edits['encoding'].setCurrentIndex(self.encodingList.index(Font.encoding))
+        self.edits['encoding'].setCurrentIndex(ENCODINGS.index(Font.encoding))
         self.edits['format'].setCurrentIndex(Font.texFormat)
         self.edits['charsPerRow'].setValue(Font.charsPerRow)
         self.edits['charsPerColumn'].setValue(Font.charsPerColumn)
@@ -1594,13 +1597,10 @@ class BRFNT:
         self.leftMargin = FINF[5]               #
         self.charWidth = FINF[6] + 1            #
         self.fullWidth = FINF[7] + 1            #
-        self.encoding = {
-            0: 'UTF-8',
-            1: 'UTF-16BE',
-            2: 'SJIS',
-            3: 'windows-1252',
-            4: 'hex', # COUNT
-            }.get(FINF[8], 'UTF-8')
+        if FINF[8] < len(ENCODINGS):
+            self.encoding = ENCODINGS[FINF[8]]
+        else:
+            self.encoding = ENCODINGS[0]        # shrug
         self.height = FINF[12] + 1              #
         self.width = FINF[13] + 1               #
         self.ascent = FINF[14]                  #
@@ -1660,7 +1660,12 @@ class BRFNT:
         for i, tex in enumerate(Images):
             val = CMAP[i][1]
             if val == 0xFFFF: continue
-            char = struct.pack('>H', val).decode(self.encoding, 'replace')
+
+            if self.encoding.lower() == 'ucs-2':
+                char = chr(val)
+            else:
+                char = val.to_bytes(2, 'big').decode(self.encoding)
+
             g = Glyph(tex, char, CWDH2[i][0], CWDH2[i][1], CWDH2[i][2])
             g.updateToolTip(self.encoding)
             self.glyphs.append(g)
@@ -1853,13 +1858,7 @@ class BRFNT:
             self.leftMargin,
             self.charWidth - 1,
             self.fullWidth - 1,
-            {
-                'utf-8': 0,
-                'utf-16be': 1,
-                'sjis': 2,
-                'windows-1252': 3,
-                'hex': 4,
-                }.get(self.encoding.lower(), 0),
+            ENCODINGS.index(self.encoding),
             0x38,
             cwdhOffset + 8,
             firstCMAPOffset + 8,
