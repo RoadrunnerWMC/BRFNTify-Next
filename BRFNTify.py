@@ -926,7 +926,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits = {
             'fontType': QtWidgets.QComboBox(self),
             'encoding': QtWidgets.QComboBox(self),
-            'format': QtWidgets.QComboBox(self),
+            'texFormat': QtWidgets.QComboBox(self),
             'charsPerRow': QtWidgets.QSpinBox(self),
             'charsPerColumn': QtWidgets.QSpinBox(self),
             'defaultChar': QtWidgets.QLineEdit(self),
@@ -943,7 +943,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         self.edits['fontType'].addItems(self.typeList)
         self.edits['encoding'].addItems(ENCODINGS)
-        self.edits['format'].addItems(self.formatList)
+        self.edits['texFormat'].addItems(self.formatList)
         self.edits['charsPerRow'].setMaximum(0xFFFF)
         self.edits['charsPerColumn'].setMaximum(0xFFFF)
         self.edits['defaultChar'].setMaxLength(1)
@@ -981,7 +981,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         texturesBox = QtWidgets.QGroupBox('Textures')
         texturesLyt = QtWidgets.QFormLayout(texturesBox)
-        texturesLyt.addRow('Texture Format:', self.edits['format'])
+        texturesLyt.addRow('Texture Format:', self.edits['texFormat'])
         texturesLyt.addRow('Chars Per Row:', self.edits['charsPerRow'])
         texturesLyt.addRow('Chars Per Column:', self.edits['charsPerColumn'])
         texturesLyt.addRow('Width:', self.edits['width'])
@@ -1017,7 +1017,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.updating = True
         self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
         self.edits['encoding'].setCurrentIndex(ENCODINGS.index(Font.encoding))
-        self.edits['format'].setCurrentIndex(Font.texFormat)
+        self.edits['texFormat'].setCurrentIndex(Font.texFormat)
         self.edits['charsPerRow'].setValue(Font.charsPerRow)
         self.edits['charsPerColumn'].setValue(Font.charsPerColumn)
         self.edits['defaultChar'].setText(chr(Font.defaultChar))
