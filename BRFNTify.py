@@ -430,6 +430,7 @@ class Window(QtWidgets.QMainWindow):
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', 'Wii font files (*.brfnt);;All Files(*)')[0]
         if not fn: return
         self.savename = fn
+        self.setWindowTitle('BRFNTify Next - %s' % fn.replace('\\', '/').split('/')[-1])
 
         self.HandleSave()
 
