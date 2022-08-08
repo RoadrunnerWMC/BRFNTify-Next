@@ -18,9 +18,11 @@ DATA_FOLDERS = ['data']
 DATA_FILES = ['readme.md', 'license.txt', 'format.txt']
 EXTRA_IMPORT_PATHS = []
 
-EXCLUDE_SELECT = True
-EXCLUDE_THREADING = True
+USE_PYQT = True
+USE_NSMBLIB = False
+
 EXCLUDE_HASHLIB = True
+EXCLUDE_LOCALE = True
 
 # macOS only
 AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
