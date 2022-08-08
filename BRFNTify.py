@@ -1564,7 +1564,7 @@ class BRFNT:
         TGLP = struct.unpack_from(endian + '4sIBBbBI6HI', tmpf[48:96])
         CWDH = struct.unpack_from(endian + '4sIxxH4x', tmpf, FINF[10] - 8)
         CWDH2 = []
-        CMAP = []
+        CMAP = {}
 
 
         position = FINF[10] + 8
@@ -1579,7 +1579,7 @@ class BRFNT:
             if Entry[2] == 0:
                 index = Entry[4]
                 for glyph in range(Entry[0], Entry[1] + 1):
-                    CMAP.append((index, glyph))
+                    CMAP[index] = glyph
                     index += 1
 
             elif Entry[2] == 1:
@@ -1590,12 +1590,12 @@ class BRFNT:
                     if index == 0xFFFF:
                         pass
                     else:
-                        CMAP.append((index, glyph))
+                        CMAP[index] = glyph
 
             elif Entry[2] == 2:
                 entries = struct.unpack_from(endian + str(Entry[4]*2) + 'H', tmpf, position+0xE)
                 for i in range(Entry[4]):
-                    CMAP.append((entries[i * 2 + 1], entries[i * 2]))
+                    CMAP[entries[i * 2 + 1]] = entries[i * 2]
 
             else:
                 raise ValueError('Unknown CMAP type!')
@@ -1663,19 +1663,16 @@ class BRFNT:
                 y += self.cellHeight
 
 
-        CMAP.sort(key=lambda x: x[0])
-
-        for i in range(len(CMAP), len(Images)):
-            CMAP.append((0xFFFF, 0xFFFF))
-
         for i in range(len(CWDH2), len(Images)):
             CWDH2.append((0xFF, 0xFF, 0xFF))
 
 
         self.glyphs = []
         for i, tex in enumerate(Images):
-            val = CMAP[i][1]
-            if val == 0xFFFF: continue
+            val = CMAP.get(i)
+            if val is None:
+                print('WARNING: No character code is assigned to glyph %d' % i)
+                continue
 
             char = valueToChar(val, self.encoding)
             g = Glyph(tex, char, CWDH2[i][0], CWDH2[i][1], CWDH2[i][2])
