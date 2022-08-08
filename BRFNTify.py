@@ -50,7 +50,7 @@ version = 'Beta 1'
 Font = None
 
 
-ENCODINGS = ['UCS-2', 'UTF-16BE', 'SJIS', 'CP1252']
+ENCODINGS = ['UCS-2', 'UTF-16BE', 'CP932', 'CP1252']
 
 
 
