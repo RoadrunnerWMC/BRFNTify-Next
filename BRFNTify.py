@@ -50,7 +50,7 @@ version = 'Beta 1'
 Font = None
 
 
-ENCODINGS = ['UCS-2', 'UTF-16BE', 'CP932', 'CP1252']
+ENCODINGS = ['UCS-2', 'UTF-16', 'CP932', 'CP1252']
 
 
 
@@ -908,6 +908,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     A dock widget that displays font-wide metrics
     """
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
+    endiannessList = ['Big', 'Little']
     formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
     updating = False
 
@@ -922,6 +923,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         self.edits = {
             'fontType': QtWidgets.QComboBox(self),
+            'endianness': QtWidgets.QComboBox(self),
             'encoding': QtWidgets.QComboBox(self),
             'texFormat': QtWidgets.QComboBox(self),
             'charsPerRow': QtWidgets.QSpinBox(self),
@@ -939,6 +941,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         }
 
         self.edits['fontType'].addItems(self.typeList)
+        self.edits['endianness'].addItems(self.endiannessList)
         self.edits['encoding'].addItems(ENCODINGS)
         self.edits['texFormat'].addItems(self.formatList)
         self.edits['charsPerRow'].setMaximum(0xFFFF)
@@ -973,6 +976,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         textPropsBox = QtWidgets.QGroupBox('Text Properties')
         textPropsLyt = QtWidgets.QFormLayout(textPropsBox)
         textPropsLyt.addRow('Font Type:', self.edits['fontType'])
+        textPropsLyt.addRow('Endianness:', self.edits['endianness'])
         textPropsLyt.addRow('Encoding:', self.edits['encoding'])
         textPropsLyt.addRow('Default Char:', self.edits['defaultChar'])
 
@@ -1013,6 +1017,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
 
         self.updating = True
         self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
+        self.edits['endianness'].setCurrentIndex('><'.index(Font.endianness))
         self.edits['encoding'].setCurrentIndex(ENCODINGS.index(Font.encoding))
         self.edits['texFormat'].setCurrentIndex(Font.texFormat)
         self.edits['charsPerRow'].setValue(Font.charsPerRow)
@@ -1035,6 +1040,10 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         A box was changed
         """
         if Font is None or self.updating: return
+
+        if name == 'endianness':
+            Font.endianness = '><'[self.edits['endianness'].currentIndex()]
+            return
 
         w = self.edits[name]
         if isinstance(w, QtWidgets.QComboBox):
@@ -1529,6 +1538,7 @@ class BRFNT:
     Class that represents a BRFNT file.
     """
     encoding = None
+    endianness = None
 
     def __init__(self, data=None):
         if data is not None:
@@ -1540,23 +1550,32 @@ class BRFNT:
         Load BRFNT data
         """
 
-        RFNT = struct.unpack_from('>4sHHIHH', tmpf[0:16])
-        FINF = struct.unpack_from('>4sIBbHbBbB3I4B', tmpf[16:48])
-        TGLP = struct.unpack_from('>4sIBBbBI6HI', tmpf[48:96])
-        CWDH = struct.unpack_from('>4sIxxH4x', tmpf, FINF[10] - 8)
+        magic = tmpf[:4]
+        if magic == b'RFNT':
+            endian = '>'
+        elif magic == b'TNFR':
+            endian = '<'
+        else:
+            raise ValueError('Not a BRFNT (magic: %s)' % repr(magic))
+        self.endianness = endian
+
+        RFNT = struct.unpack_from(endian + '4sHHIHH', tmpf[0:16])
+        FINF = struct.unpack_from(endian + '4sIBbHbBbB3I4B', tmpf[16:48])
+        TGLP = struct.unpack_from(endian + '4sIBBbBI6HI', tmpf[48:96])
+        CWDH = struct.unpack_from(endian + '4sIxxH4x', tmpf, FINF[10] - 8)
         CWDH2 = []
         CMAP = []
 
 
         position = FINF[10] + 8
         for i in range(CWDH[2]+1):
-            Entry = struct.unpack_from('>bBb', tmpf, position)
+            Entry = struct.unpack_from(endian + 'bBb', tmpf, position)
             position += 3
             CWDH2.append((Entry[0], Entry[1], Entry[2]))
 
         position = FINF[11]
         while position != 0:
-            Entry = struct.unpack_from('>HHHxxIH', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
+            Entry = struct.unpack_from(endian + 'HHHxxIH', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
             if Entry[2] == 0:
                 index = Entry[4]
                 for glyph in range(Entry[0], Entry[1] + 1):
@@ -1565,7 +1584,7 @@ class BRFNT:
 
             elif Entry[2] == 1:
                 indexdat = tmpf[(position+12) : (position+12+((Entry[1]-Entry[0]+1)*2))]
-                entries = struct.unpack('>' + str(int(len(indexdat)/2)) + 'H', indexdat)
+                entries = struct.unpack(endian + str(int(len(indexdat)/2)) + 'H', indexdat)
                 for i, glyph in enumerate(range(Entry[0], Entry[1]+1)):
                     index = entries[i]
                     if index == 0xFFFF:
@@ -1574,7 +1593,7 @@ class BRFNT:
                         CMAP.append((index, glyph))
 
             elif Entry[2] == 2:
-                entries = struct.unpack_from('>' + str(Entry[4]*2) + 'H', tmpf, position+0xE)
+                entries = struct.unpack_from(endian + str(Entry[4]*2) + 'H', tmpf, position+0xE)
                 for i in range(Entry[4]):
                     CMAP.append((entries[i * 2 + 1], entries[i * 2]))
 
@@ -1625,7 +1644,7 @@ class BRFNT:
         charsPerTex = self.charsPerRow * self.charsPerColumn
 
         for tex in range(numTexs):
-            SingleTex.append(struct.unpack('>' + str(textureSize) + 'B', TPLDat[offset:textureSize+offset]))
+            SingleTex.append(struct.unpack(endian + str(textureSize) + 'B', TPLDat[offset:textureSize+offset]))
             offset += textureSize
 
         for tex in SingleTex:
@@ -1668,7 +1687,8 @@ class BRFNT:
     def generate(cls, qfont, chars, fgColor, bgColor):
         self = cls()
 
-        self.encoding = 'UTF-16BE'
+        self.encoding = 'UTF-16'
+        self.endianness = '>'
         self.glyphs = []
 
         fontMetrics = QtGui.QFontMetrics(qfont)
@@ -1720,6 +1740,7 @@ class BRFNT:
         """
 
         data = bytearray()
+        endian = self.endianness
 
         # Leave space for the RFNT header
         data.extend(b'\0' * 16)
@@ -1767,8 +1788,8 @@ class BRFNT:
             texDatas.append(encoder.run())
 
 
-        data.extend(struct.pack('>4sIBBbBI6HI16x',
-            b'TGLP',
+        data.extend(struct.pack(endian + '4sIBBbBI6HI16x',
+            b'TGLP' if endian == '>' else b'PLGT',
             sum(len(t) for t in texDatas) + 0x30,
             self.cellWidth - 1,
             self.cellHeight - 1,
@@ -1793,12 +1814,12 @@ class BRFNT:
         numChunks += 1
 
         for g in self.glyphs:
-            data.extend(struct.pack('>bBb', g.leftMargin, g.charWidth, g.fullWidth))
+            data.extend(struct.pack(endian + 'bBb', g.leftMargin, g.charWidth, g.fullWidth))
         while len(data) % 4: data.append(0)
 
         # Fill in the CWDH header
-        struct.pack_into('>4sIxxH', data, cwdhOffset,
-            b'CWDH',
+        struct.pack_into(endian + '4sIxxH', data, cwdhOffset,
+            b'CWDH' if endian == '>' else b'HDWC',
             len(data) - cwdhOffset,
             len(self.glyphs) - 1)
 
@@ -1809,28 +1830,28 @@ class BRFNT:
         for type, firstChar, lastChar, extra in self._createCmapBlocks():
 
             if prevCMAPOffset is not None:
-                struct.pack_into('>I', data, prevCMAPOffset + 16, len(data) + 8)
+                struct.pack_into(endian + 'I', data, prevCMAPOffset + 16, len(data) + 8)
             prevCMAPOffset = len(data)
 
             extraData = bytearray()
 
             if type == 0:
                 firstIndex = extra
-                extraData.extend(struct.pack('>Hxx', firstIndex))
+                extraData.extend(struct.pack(endian + 'Hxx', firstIndex))
 
             elif type == 1:
                 indices = extra
-                extraData.extend(struct.pack('>' + str(len(indices)) + 'H', *indices))
+                extraData.extend(struct.pack(endian + str(len(indices)) + 'H', *indices))
 
             else: # type == 2
                 entries = extra
-                extraData.extend(struct.pack('>H', len(entries)))
+                extraData.extend(struct.pack(endian + 'H', len(entries)))
                 for e in entries:
-                    extraData.extend(struct.pack('>HH', e[0], e[1]))
+                    extraData.extend(struct.pack(endian + 'HH', e[0], e[1]))
 
             while len(extraData) % 4: extraData.append(0)
-            data.extend(struct.pack('>4sIHHHxxI',
-                b'CMAP',
+            data.extend(struct.pack(endian + '4sIHHHxxI',
+                b'CMAP' if endian == '>' else b'PAMC',
                 0x14 + len(extraData),
                 firstChar,
                 lastChar,
@@ -1842,8 +1863,8 @@ class BRFNT:
 
 
         # Fill in the FINF header
-        struct.pack_into('>4sIBbHbBbB3I4B', data, 0x10,
-            b'FINF',
+        struct.pack_into(endian + '4sIBbHbBbB3I4B', data, 0x10,
+            b'FINF' if endian == '>' else b'FNIF',
             0x20,
             self.fontType,
             self.leading - 1,
@@ -1861,8 +1882,8 @@ class BRFNT:
             self.descent)
 
         # Fill in the RFNT header
-        struct.pack_into('>4sHHIHH', data, 0,
-            b'RFNT',
+        struct.pack_into(endian + '4sHHIHH', data, 0,
+            b'RFNT' if endian == '>' else b'TNFR',
             self.rfntVersionMajor,
             self.rfntVersionMinor,
             len(data),
@@ -2002,8 +2023,30 @@ def valueToChar(value, encoding):
     """
     if encoding.lower() == 'ucs-2':
         return chr(value)
-    else:
-        return value.to_bytes(2, 'big').decode(encoding)
+
+    elif encoding.lower() == 'utf-16':
+        # Endianness was handled when the value was read as a u16, so we
+        # should always use big-endian here
+        return value.to_bytes(2, 'big').decode('utf-16be')
+
+    elif encoding.lower() == 'cp932':
+        if value == 0x5C:
+            # https://en.wikipedia.org/wiki/Code_page_932_(Microsoft_Windows)#Single-byte_character_differences
+            # explains that 0x5C is inconsistently shown as "\\" or "¥".
+            # Python CP932 encoding considers it "\\".
+            # kanjifontnw4r.szs from Super Mario All-Stars:
+            # Super Mario Galaxy shows that Nintendo considers it to be "¥".
+            return chr(0xA5)
+        elif value < 0x80 or 0xA0 <= value < 0xE0:
+            # https://en.wikipedia.org/wiki/Shift_JIS#Shift_JIS_byte_map
+            return bytes([value]).decode('cp932')
+        else:
+            return value.to_bytes(2, 'big').decode('cp932')
+
+    elif encoding.lower() == 'cp1252':
+        return bytes([value]).decode('cp1252')
+
+    raise ValueError('unknown encoding: %s' % repr(encoding))
 
 
 def charToValue(char, encoding):
@@ -2013,8 +2056,19 @@ def charToValue(char, encoding):
     """
     if encoding.lower() == 'ucs-2':
         return ord(char)
+
+    elif encoding.lower() == 'utf-16':
+        return int.from_bytes(char.encode('utf-16be', 'replace'), 'big')
+
     else:
-        return int.from_bytes(char.encode(encoding, 'replace'), 'big')
+        if encoding.lower() == 'cp932' and ord(char) == 0xA5:
+            # See comments in valueToChar()
+            return 0x5C
+
+        if encoding.lower() in {'cp932', 'cp1252'}:
+            return int.from_bytes(char.encode(encoding, 'replace'), 'big')
+
+    raise ValueError('unknown encoding: %s' % repr(self.encoding))
 
 
 if __name__ == '__main__':
