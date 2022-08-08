@@ -1543,7 +1543,7 @@ class BRFNT:
         RFNT = struct.unpack_from('>4sHHIHH', tmpf[0:16])
         FINF = struct.unpack_from('>4sIBbHbBbB3I4B', tmpf[16:48])
         TGLP = struct.unpack_from('>4sIBBbBI6HI', tmpf[48:96])
-        CWDH = struct.unpack_from('>4sII4x', tmpf, FINF[10] - 8)
+        CWDH = struct.unpack_from('>4sIxxH4x', tmpf, FINF[10] - 8)
         CWDH2 = []
         CMAP = []
 
@@ -1797,7 +1797,7 @@ class BRFNT:
         while len(data) % 4: data.append(0)
 
         # Fill in the CWDH header
-        struct.pack_into('>4sII', data, cwdhOffset,
+        struct.pack_into('>4sIxxH', data, cwdhOffset,
             b'CWDH',
             len(data) - cwdhOffset,
             len(self.glyphs) - 1)
