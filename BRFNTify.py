@@ -794,10 +794,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         """
         Get the glyph's value in the given encoding
         """
-        if encoding.lower() == 'ucs-2':
-            return ord(self.char)
-        else:
-            return int.from_bytes(self.char.encode(encoding, 'replace'), 'big')
+        return charToValue(self.char, encoding)
 
 
     def updateToolTip(self, encoding):
@@ -1661,11 +1658,7 @@ class BRFNT:
             val = CMAP[i][1]
             if val == 0xFFFF: continue
 
-            if self.encoding.lower() == 'ucs-2':
-                char = chr(val)
-            else:
-                char = val.to_bytes(2, 'big').decode(self.encoding)
-
+            char = valueToChar(val, self.encoding)
             g = Glyph(tex, char, CWDH2[i][0], CWDH2[i][1], CWDH2[i][2])
             g.updateToolTip(self.encoding)
             self.glyphs.append(g)
@@ -2000,6 +1993,28 @@ class BRFNT:
 
             g.pixmap = glyphPix
             g.update()
+
+
+def valueToChar(value, encoding):
+    """
+    Convert an integer value (from CMAP data) to a single-character
+    string that represents its value in the specified encoding.
+    """
+    if encoding.lower() == 'ucs-2':
+        return chr(value)
+    else:
+        return value.to_bytes(2, 'big').decode(encoding)
+
+
+def charToValue(char, encoding):
+    """
+    Inverse of valueToChar(). Convert a single-character string to its
+    value as stored in a CMAP block for the given encoding.
+    """
+    if encoding.lower() == 'ucs-2':
+        return ord(char)
+    else:
+        return int.from_bytes(char.encode(encoding, 'replace'), 'big')
 
 
 if __name__ == '__main__':
