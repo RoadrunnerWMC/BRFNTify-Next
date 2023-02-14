@@ -20,6 +20,8 @@ import build_release_config as config
 ################################# Intro ################################
 ########################################################################
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 DIR = 'distrib'
 WORKPATH = 'build_temp'
 SPECFILE = config.SCRIPT_FILE[:-3] + '.spec'
@@ -99,8 +101,6 @@ excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'inspect',
 
 if config.EXCLUDE_HASHLIB:
     excludes.append('hashlib')
-if config.EXCLUDE_LOCALE:
-    excludes.append('locale')
 
 if sys.platform == 'nt':
     excludes.append('posixpath')
