@@ -12,7 +12,7 @@ Requires Python 3, PyQt5 and TPLLib
  * Tempus, for making the first version of this
  * Treeki, for building it
  * RoadrunnerWMC, for making it better
- * RVLution.net, for being an awesome Wii hacking site
+ * RVLution (RIP), for being an awesome Wii hacking site
  * Everybody else who deserves credit
  * FlatIcons.net, for the icon set
 
