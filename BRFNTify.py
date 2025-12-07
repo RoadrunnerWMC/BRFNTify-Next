@@ -864,11 +864,11 @@ class Glyph(QtWidgets.QGraphicsItem):
         tooWide = pix.width() > self.pixmap.width()
         tooTall = pix.height() > self.pixmap.height()
         if tooWide and tooTall:
-            pix = pix.scaled(self.pixmap.width(), self.pixmap.height())
+            pix = pix.scaled(self.pixmap.width(), self.pixmap.height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
         elif tooWide:
-            pix = pix.scaledToWidth(self.pixmap.width())
+            pix = pix.scaledToWidth(self.pixmap.width(), Qt.SmoothTransformation)
         elif tooTall:
-            pix = pix.scaledToHeight(self.pixmap.height())
+            pix = pix.scaledToHeight(self.pixmap.height(), Qt.SmoothTransformation)
 
         # Set it
         self.pixmap = pix
