@@ -910,6 +910,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
     """
     typeList = ['0', '1', '2'] # TODO: check exactly what the valid values are
     endiannessList = ['Big', 'Little']
+    offsetSize64List = ['32-bit', '64-bit']
     formatList = ['I4', 'I8', 'IA4', 'IA8', 'RGB565', 'RGB4A3', 'RGBA8', 'Unknown', 'CI4', 'CI8', 'CI14x2', 'Unknown', 'Unknown', 'Unknown', 'CMPR/S3TC']
     updating = False
 
@@ -926,6 +927,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
             'fontType': QtWidgets.QComboBox(self),
             'endianness': QtWidgets.QComboBox(self),
             'encoding': QtWidgets.QComboBox(self),
+            'offsetSize64': QtWidgets.QComboBox(self),
             'texFormat': QtWidgets.QComboBox(self),
             'charsPerRow': QtWidgets.QSpinBox(self),
             'charsPerColumn': QtWidgets.QSpinBox(self),
@@ -944,6 +946,8 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits['fontType'].addItems(self.typeList)
         self.edits['endianness'].addItems(self.endiannessList)
         self.edits['encoding'].addItems(ENCODINGS)
+        self.edits['offsetSize64'].addItems(self.offsetSize64List)
+        self.edits['offsetSize64'].setToolTip('This should be set to "32-bit" in most cases. 64-bit offsets are only used in BRFNTs from certain Hagi titles such as Pikmin 1+2.')
         self.edits['texFormat'].addItems(self.formatList)
         self.edits['charsPerRow'].setMaximum(0xFFFF)
         self.edits['charsPerColumn'].setMaximum(0xFFFF)
@@ -979,6 +983,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         textPropsLyt.addRow('Font Type:', self.edits['fontType'])
         textPropsLyt.addRow('Endianness:', self.edits['endianness'])
         textPropsLyt.addRow('Encoding:', self.edits['encoding'])
+        textPropsLyt.addRow('Offset Size:', self.edits['offsetSize64'])
         textPropsLyt.addRow('Default Char:', self.edits['defaultChar'])
 
         texturesBox = QtWidgets.QGroupBox('Textures')
@@ -1020,6 +1025,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         self.edits['fontType'].setCurrentIndex(self.typeList.index(str(Font.fontType)))
         self.edits['endianness'].setCurrentIndex('><'.index(Font.endianness))
         self.edits['encoding'].setCurrentIndex(ENCODINGS.index(Font.encoding))
+        self.edits['offsetSize64'].setCurrentIndex(int(Font.offsetSize64))
         self.edits['texFormat'].setCurrentIndex(Font.texFormat)
         self.edits['charsPerRow'].setValue(Font.charsPerRow)
         self.edits['charsPerColumn'].setValue(Font.charsPerColumn)
@@ -1560,15 +1566,26 @@ class BRFNT:
             raise ValueError('Not a BRFNT (magic: %s)' % repr(magic))
         self.endianness = endian
 
-        RFNT = struct.unpack_from(endian + '4sHHIHH', tmpf[0:16])
-        FINF = struct.unpack_from(endian + '4sIBbHbBbB3I4B', tmpf[16:48])
-        TGLP = struct.unpack_from(endian + '4sIBBbBI6HI', tmpf[48:96])
-        CWDH = struct.unpack_from(endian + '4sIxxH4x', tmpf, FINF[10] - 8)
+        RFNT = struct.unpack_from(endian + '4sHHIHH', tmpf)
+
+        finfSize, = struct.unpack_from(endian + '4xI', tmpf, RFNT[4])
+        if finfSize == 0x20:
+            offsetFmt = 'I'
+            self.offsetSize64 = False
+        elif finfSize == 0x2C:
+            offsetFmt = 'Q'
+            self.offsetSize64 = True
+        else:
+            raise ValueError('Unrecognized FINF section size %d' % finfSize)
+
+        FINF = struct.unpack_from(endian + '4sIBbHbBbB3' + offsetFmt + '4B', tmpf, RFNT[4])
+        TGLP = struct.unpack_from(endian + '4sIBBbBI6H' + offsetFmt, tmpf, FINF[9] - 8)
+        CWDH = struct.unpack_from(endian + '4sIxxH' + offsetFmt, tmpf, FINF[10] - 8)
         CWDH2 = []
         CMAP = {}
 
 
-        position = FINF[10] + 8
+        position = FINF[10] + (12 if self.offsetSize64 else 8)
         for i in range(CWDH[2]+1):
             Entry = struct.unpack_from(endian + 'bBb', tmpf, position)
             position += 3
@@ -1576,7 +1593,7 @@ class BRFNT:
 
         position = FINF[11]
         while position != 0:
-            Entry = struct.unpack_from(endian + 'HHHxxIH', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
+            Entry = struct.unpack_from(endian + 'HHHxx' + offsetFmt + 'H', tmpf, position) # 0: start range -- 1: end range -- 2: type -- 3: position -- 4: CharCode List
             if Entry[2] == 0:
                 index = Entry[4]
                 for glyph in range(Entry[0], Entry[1] + 1):
@@ -1584,7 +1601,8 @@ class BRFNT:
                     index += 1
 
             elif Entry[2] == 1:
-                indexdat = tmpf[(position+12) : (position+12+((Entry[1]-Entry[0]+1)*2))]
+                indexstart = position + (16 if self.offsetSize64 else 12)
+                indexdat = tmpf[indexstart : (indexstart+((Entry[1]-Entry[0]+1)*2))]
                 entries = struct.unpack(endian + str(int(len(indexdat)/2)) + 'H', indexdat)
                 for i, glyph in enumerate(range(Entry[0], Entry[1]+1)):
                     index = entries[i]
@@ -1594,7 +1612,7 @@ class BRFNT:
                         CMAP[index] = glyph
 
             elif Entry[2] == 2:
-                entries = struct.unpack_from(endian + str(Entry[4]*2) + 'H', tmpf, position+0xE)
+                entries = struct.unpack_from(endian + str(Entry[4]*2) + 'H', tmpf, position+(0x12 if self.offsetSize64 else 0xE))
                 for i in range(Entry[4]):
                     CMAP[entries[i * 2 + 1]] = entries[i * 2]
 
@@ -1636,7 +1654,7 @@ class BRFNT:
         texHeight = TGLP[12]                    # Height of a texture
 
 
-        TPLDat = tmpf[96:(TGLP[1] + 48)]
+        TPLDat = tmpf[TGLP[13]:(FINF[9] - 8 + TGLP[1])]
 
 
         SingleTex = []
@@ -1739,13 +1757,14 @@ class BRFNT:
 
         data = bytearray()
         endian = self.endianness
+        offsetFmt = 'Q' if self.offsetSize64 else 'I'
 
         # Leave space for the RFNT header
         data.extend(b'\0' * 16)
         numChunks = 0
 
         # Leave space for the FINF header
-        data.extend(b'\0' * 32)
+        data.extend(b'\0' * (44 if self.offsetSize64 else 32))
         numChunks += 1
 
         # TGLP
@@ -1786,9 +1805,9 @@ class BRFNT:
             texDatas.append(encoder.run())
 
 
-        data.extend(struct.pack(endian + '4sIBBbBI6HI16x',
+        data.extend(struct.pack(endian + '4sIBBbBI6H' + offsetFmt,
             b'TGLP' if endian == '>' else b'PLGT',
-            sum(len(t) for t in texDatas) + 0x30,
+            sum(len(t) for t in texDatas) + (0x44 if self.offsetSize64 else 0x30),
             self.cellWidth - 1,
             self.cellHeight - 1,
             self.baseLine - 1,
@@ -1800,7 +1819,8 @@ class BRFNT:
             self.charsPerColumn,
             texWidth,
             texHeight,
-            0x60))
+            0x80 if self.offsetSize64 else 0x60))
+        data.extend(b'\0' * (32 if self.offsetSize64 else 16))
         numChunks += 1
         for t in texDatas:
             data.extend(t)
@@ -1808,7 +1828,7 @@ class BRFNT:
         # CWDH
         cwdhOffset = len(data)
         # Leave space for the CWDH header
-        data.extend(b'\0' * 16)
+        data.extend(b'\0' * (20 if self.offsetSize64 else 16))
         numChunks += 1
 
         for g in self.glyphs:
@@ -1828,7 +1848,7 @@ class BRFNT:
         for type, firstChar, lastChar, extra in self._createCmapBlocks():
 
             if prevCMAPOffset is not None:
-                struct.pack_into(endian + 'I', data, prevCMAPOffset + 16, len(data) + 8)
+                struct.pack_into(endian + offsetFmt, data, prevCMAPOffset + 16, len(data) + 8)
             prevCMAPOffset = len(data)
 
             extraData = bytearray()
@@ -1848,7 +1868,7 @@ class BRFNT:
                     extraData.extend(struct.pack(endian + 'HH', e[0], e[1]))
 
             while len(extraData) % 4: extraData.append(0)
-            data.extend(struct.pack(endian + '4sIHHHxxI',
+            data.extend(struct.pack(endian + '4sIHHHxx' + offsetFmt,
                 b'CMAP' if endian == '>' else b'PAMC',
                 0x14 + len(extraData),
                 firstChar,
@@ -1861,9 +1881,9 @@ class BRFNT:
 
 
         # Fill in the FINF header
-        struct.pack_into(endian + '4sIBbHbBbB3I4B', data, 0x10,
+        struct.pack_into(endian + '4sIBbHbBbB3' + offsetFmt + '4B', data, 0x10,
             b'FINF' if endian == '>' else b'FNIF',
-            0x20,
+            0x2c if self.offsetSize64 else 0x20,
             self.fontType,
             self.leading - 1,
             self.defaultChar,
@@ -1871,7 +1891,7 @@ class BRFNT:
             self.charWidth - 1,
             self.fullWidth - 1,
             ENCODINGS.index(self.encoding),
-            0x38,
+            0x44 if self.offsetSize64 else 0x38,
             cwdhOffset + 8,
             firstCMAPOffset + 8,
             self.height - 1,
@@ -1923,6 +1943,8 @@ class BRFNT:
             if len(L) - runStartI >= minLen:
                 yield runStartI, len(L) - runStartI
 
+        # TODO: some of the tuning constants should be slightly
+        # different for BRFNTs with 64-bit offsets
 
         # Type-0 CMAPs (runs of glyphs and indices together)
         for runStart, runLen in findRuns(charCodes, 5):
