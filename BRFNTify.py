@@ -2088,7 +2088,7 @@ def charToValue(char, encoding):
         if encoding.lower() in {'cp932', 'cp1252'}:
             return int.from_bytes(char.encode(encoding, 'replace'), 'big')
 
-    raise ValueError('unknown encoding: %s' % repr(self.encoding))
+    raise ValueError('unknown encoding: %s' % repr(encoding))
 
 
 if __name__ == '__main__':
