@@ -6,7 +6,7 @@ By Tempus
 
 ## Requirements
 
-Requires Python 3, PyQt5 and TPLLib
+Requires Python 3, PyQt6 and TPLLib
 
 ## Credits
  * Tempus, for making the first version of this

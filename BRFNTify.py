@@ -38,7 +38,7 @@ import sys
 import traceback
 import unicodedata
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
 import TPLLib
@@ -102,7 +102,7 @@ def createHorzLine():
     Helper to create a horizontal line widget
     """
     f = QtWidgets.QFrame()
-    f.setFrameStyle(QtWidgets.QFrame.HLine | QtWidgets.QFrame.Sunken)
+    f.setFrameStyle(QtWidgets.QFrame.Shape.HLine | QtWidgets.QFrame.Shadow.Sunken)
     return f
 
 
@@ -181,16 +181,16 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowIcon(ico)
 
         self.fontDock = FontMetricsDock(self)
-        self.fontDock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.fontDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self.charDock = CharMetricsDock(self)
-        self.charDock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.charDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self.prevDock = TextPreviewDock(self)
         self.prevDock.setVisible(False)
-        self.prevDock.setAllowedAreas(Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea)
-        self.prevDock.setFeatures(self.prevDock.features() | QtWidgets.QDockWidget.DockWidgetVerticalTitleBar)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.fontDock)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.charDock)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.prevDock)
+        self.prevDock.setAllowedAreas(Qt.DockWidgetArea.TopDockWidgetArea | Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.prevDock.setFeatures(self.prevDock.features() | QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetVerticalTitleBar)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.fontDock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.charDock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.prevDock)
         self.brfntScene.selectionChanged.connect(self.charDock.updateGlyph)
 
         self.CreateMenus()
@@ -202,12 +202,12 @@ class Window(QtWidgets.QMainWindow):
         """
         # create the actions
         self.actions = {}
-        self.CreateAction('open', self.HandleOpen, GetIcon('open'), '&Open...', 'Open a font file', QtGui.QKeySequence.Open)
-        self.CreateAction('save', self.HandleSave, GetIcon('save'), '&Save', 'Save the font file', QtGui.QKeySequence.Save)
-        self.CreateAction('saveas', self.HandleSaveAs, GetIcon('saveas'), 'Save &as...', 'Save the font file to a new filename', QtGui.QKeySequence.SaveAs)
-        self.CreateAction('exportasimg', self.HandleExportAsImage, None, '&Export as Image...', 'Export all characters as an image', 'Ctrl+E')
-        self.CreateAction('importfromimg', self.HandleImportFromImage, None, '&Import from Image...', 'Import all characters from an image', 'Ctrl+I')
-        self.CreateAction('generate', self.HandleGenerate, None, '&Generate', 'Generate a font from one installed on your computer', 'Ctrl+G')
+        self.CreateAction('open', self.HandleOpen, GetIcon('open'), '&Open...', 'Open a font file', QtGui.QKeySequence.StandardKey.Open)
+        self.CreateAction('save', self.HandleSave, GetIcon('save'), '&Save', 'Save the font file', QtGui.QKeySequence.StandardKey.Save)
+        self.CreateAction('saveas', self.HandleSaveAs, GetIcon('saveas'), 'Save &as...', 'Save the font file to a new filename', QtGui.QKeySequence.StandardKey.SaveAs)
+        self.CreateAction('importfromimg', self.HandleImportFromImage, GetIcon('import'), '&Import from Image...', 'Import all characters from an image', 'Ctrl+I')
+        self.CreateAction('exportasimg', self.HandleExportAsImage, GetIcon('export'), '&Export as Image...', 'Export all characters as an image', 'Ctrl+E')
+        self.CreateAction('generate', self.HandleGenerate, GetIcon('generate'), '&Generate', 'Generate a font from one installed on your computer', 'Ctrl+G')
         self.SetOutputEnabled(False)
         # Dock show/hide actions are created later
         self.CreateAction('leading', self.HandleLeading, GetIcon('leading'), '&Leading', 'Show or hide leading lines (the height of each line of text)', 'Ctrl+1')
@@ -241,8 +241,8 @@ class Window(QtWidgets.QMainWindow):
         self.fileMenu.addAction(self.actions['save'])
         self.fileMenu.addAction(self.actions['saveas'])
         self.fileMenu.addSeparator()
-        self.fileMenu.addAction(self.actions['exportasimg'])
         self.fileMenu.addAction(self.actions['importfromimg'])
+        self.fileMenu.addAction(self.actions['exportasimg'])
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.actions['generate'])
         m.addMenu(self.fileMenu)
@@ -294,9 +294,9 @@ class Window(QtWidgets.QMainWindow):
         """
 
         if icon is not None:
-            act = QtWidgets.QAction(icon, text, self)
+            act = QtGui.QAction(icon, text, self)
         else:
-            act = QtWidgets.QAction(text, self)
+            act = QtGui.QAction(text, self)
 
         if shortcut is not None: act.setShortcut(shortcut)
         if statustext is not None: act.setStatusTip(statustext)
@@ -339,7 +339,7 @@ class Window(QtWidgets.QMainWindow):
         txtedit = QtWidgets.QPlainTextEdit(btm)
         txtedit.setReadOnly(True)
 
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(toplbl)
@@ -352,7 +352,7 @@ class Window(QtWidgets.QMainWindow):
         dlg.setMinimumWidth(384)
         dlg.setWindowTitle('Error')
         buttonBox.accepted.connect(dlg.accept)
-        dlg.exec_()
+        dlg.exec()
 
 
     def HandleOpen(self):
@@ -477,7 +477,7 @@ class Window(QtWidgets.QMainWindow):
         """
 
         dlg = GenerateDialog()
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+        if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             # Create a bunch of glyphs, I guess.
 
             chars = dlg.chars.text()
@@ -551,19 +551,23 @@ class Window(QtWidgets.QMainWindow):
         txtedit = QtWidgets.QPlainTextEdit(readme)
         txtedit.setReadOnly(True)
 
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(txtedit)
         layout.addWidget(buttonBox)
 
         dlg = QtWidgets.QDialog()
+        ico = QtGui.QIcon()
+        ico.addPixmap(QtGui.QPixmap('data/icon-logobig.png'))
+        ico.addPixmap(QtGui.QPixmap('data/icon-logosmall.png'))
+        dlg.setWindowIcon(ico)
         dlg.setLayout(layout)
         dlg.setModal(True)
         dlg.setMinimumWidth(512)
         dlg.setWindowTitle('About')
         buttonBox.accepted.connect(dlg.accept)
-        dlg.exec_()
+        dlg.exec()
 
 
     zoomLevels = [20.0, 35.0, 50.0, 65.0, 80.0, 90.0, 100.0, 125.0, 150.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0]
@@ -595,11 +599,15 @@ class GenerateDialog(QtWidgets.QDialog):
     """
     Allows the user to generate a glyph table from an installed font
     """
-    fg = Qt.black
-    bg = Qt.transparent
+    fg = Qt.GlobalColor.black
+    bg = Qt.GlobalColor.transparent
 
     def __init__(self):
         super().__init__()
+        ico = QtGui.QIcon()
+        ico.addPixmap(QtGui.QPixmap('data/icon-logobig.png'))
+        ico.addPixmap(QtGui.QPixmap('data/icon-logosmall.png'))
+        self.setWindowIcon(ico)
         self.setWindowTitle('Generate a Font')
 
         # Font and style group box
@@ -608,7 +616,7 @@ class GenerateDialog(QtWidgets.QDialog):
         self.fontCombo = QtWidgets.QFontComboBox()
         self.sizeCombo = QtWidgets.QComboBox()
         self.weightValue = QtWidgets.QSpinBox()
-        self.italicCheckbox = QtWidgets.QCheckBox('Italic')
+        self.italicCheckbox = QtWidgets.QCheckBox()
 
         self.findSizes(self.fontCombo.currentFont())
 
@@ -621,8 +629,14 @@ class GenerateDialog(QtWidgets.QDialog):
         fontLayout.addRow('Font:', self.fontCombo)
         fontLayout.addRow('Size:', self.sizeCombo)
         fontLayout.addRow('Weight:', self.weightValue)
-        fontLayout.addRow('', QtWidgets.QLabel('<small>Default is 50. Bold is 75. <a href="https://doc.qt.io/qt-5/qfont.html#Weight-enum">More information.</a></small>'))
-        fontLayout.addRow(self.italicCheckbox)
+
+        # separate the QLabel from the addRow function so the link can actually be clicked on
+
+        boldLabel = QtWidgets.QLabel('<small>Default is 50. Bold is 75. <a href="https://doc.qt.io/qt-5/qfont.html#Weight-enum">More information.</a></small>')
+        boldLabel.setOpenExternalLinks(True)
+
+        fontLayout.addRow('', boldLabel)
+        fontLayout.addRow('Italic:', self.italicCheckbox)
 
         # Colors group box
         colorsGroupBox = QtWidgets.QGroupBox('Colors')
@@ -663,7 +677,7 @@ class GenerateDialog(QtWidgets.QDialog):
         charsLayout.addWidget(self.chars)
 
         # Button box and overall layout
-        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
 
@@ -678,13 +692,12 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         Add font sizes to self.sizeCombo
         """
-        fontDatabase = QtGui.QFontDatabase()
         currentSize = self.sizeCombo.currentText()
 
         with blockSignalsFrom(self.sizeCombo):
             self.sizeCombo.clear()
 
-            if fontDatabase.isSmoothlyScalable(font.family(), fontDatabase.styleString(font)):
+            if QtGui.QFontDatabase.isSmoothlyScalable(font.family(), QtGui.QFontDatabase.styleString(font)):
                 self.sizeCombo.setEditable(True)
 
                 for size in QtGui.QFontDatabase.standardSizes():
@@ -694,7 +707,7 @@ class GenerateDialog(QtWidgets.QDialog):
                 self.sizeCombo.setEditable(False)
 
                 addedAny = False
-                for size in fontDatabase.smoothSizes(font.family(), fontDatabase.styleString(font)):
+                for size in QtGui.QFontDatabase.smoothSizes(font.family(), QtGui.QFontDatabase.styleString(font)):
                     self.sizeCombo.addItem(str(size))
                     addedAny = True
 
@@ -714,7 +727,7 @@ class GenerateDialog(QtWidgets.QDialog):
         User clicked the Choose... button for the foreground color
         """
         dlg = QtWidgets.QColorDialog(self)
-        dlg.setOption(dlg.ShowAlphaChannel, True)
+        dlg.setOption(dlg.ColorDialogOption.ShowAlphaChannel, True)
         dlg.setCurrentColor(self.fg)
         dlg.open()
         dlg.finished.connect(lambda state: self.fgBtnClick2(state, dlg))
@@ -724,7 +737,7 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         Called when the user closes the color dialog
         """
-        if state != dlg.Accepted: return
+        if state != dlg.DialogCode.Accepted: return
 
         self.fg = dlg.currentColor()
 
@@ -738,7 +751,7 @@ class GenerateDialog(QtWidgets.QDialog):
         User clicked the Choose... button for the background color
         """
         dlg = QtWidgets.QColorDialog(self)
-        dlg.setOption(dlg.ShowAlphaChannel, True)
+        dlg.setOption(dlg.ColorDialogOption.ShowAlphaChannel, True)
         dlg.setCurrentColor(self.bg)
         dlg.open()
         dlg.finished.connect(lambda state: self.bgBtnClick2(state, dlg))
@@ -748,7 +761,7 @@ class GenerateDialog(QtWidgets.QDialog):
         """
         Called when the user closes the color dialog
         """
-        if state != dlg.Accepted: return
+        if state != dlg.DialogCode.Accepted: return
 
         self.bg = dlg.currentColor()
 
@@ -786,9 +799,9 @@ class Glyph(QtWidgets.QGraphicsItem):
         self.boundingRect = QtCore.QRectF(0,0,pixmap.width(),pixmap.height())
         self.selectionRect = QtCore.QRectF(0,0,pixmap.width()-1,pixmap.height()-1)
 
-        self.setFlag(self.ItemIsMovable, False)
-        self.setFlag(self.ItemIsSelectable, True)
-        self.setFlag(self.ItemIsFocusable, True)
+        self.setFlag(self.GraphicsItemFlag.ItemIsMovable, False)
+        self.setFlag(self.GraphicsItemFlag.ItemIsSelectable, True)
+        self.setFlag(self.GraphicsItemFlag.ItemIsFocusable, True)
 
 
     def value(self, encoding):
@@ -829,9 +842,9 @@ class Glyph(QtWidgets.QGraphicsItem):
         QtWidgets.QGraphicsItem.contextMenuEvent(self, e)
 
         menu = QtWidgets.QMenu()
-        menu.addAction('Import...', self.handleImport)
-        menu.addAction('Export...', self.handleExport)
-        menu.exec_(e.screenPos())
+        menu.addAction(GetIcon('import'), 'Import...', self.handleImport)
+        menu.addAction(GetIcon('export'), 'Export...', self.handleExport)
+        menu.exec(e.screenPos())
 
 
     def handleExport(self):
@@ -864,11 +877,11 @@ class Glyph(QtWidgets.QGraphicsItem):
         tooWide = pix.width() > self.pixmap.width()
         tooTall = pix.height() > self.pixmap.height()
         if tooWide and tooTall:
-            pix = pix.scaled(self.pixmap.width(), self.pixmap.height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+            pix = pix.scaled(self.pixmap.width(), self.pixmap.height(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
         elif tooWide:
-            pix = pix.scaledToWidth(self.pixmap.width(), Qt.SmoothTransformation)
+            pix = pix.scaledToWidth(self.pixmap.width(), Qt.TransformationMode.SmoothTransformation)
         elif tooTall:
-            pix = pix.scaledToHeight(self.pixmap.height(), Qt.SmoothTransformation)
+            pix = pix.scaledToHeight(self.pixmap.height(), Qt.TransformationMode.SmoothTransformation)
 
         # Set it
         self.pixmap = pix
@@ -884,7 +897,7 @@ class Glyph(QtWidgets.QGraphicsItem):
         painter.drawPixmap(0, 0, self.pixmap)
 
         if self.isSelected():
-            painter.setPen(QtGui.QPen(Qt.blue, 1, Qt.SolidLine))
+            painter.setPen(QtGui.QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.SolidLine))
             painter.drawRect(self.selectionRect)
             painter.fillRect(self.selectionRect, QtGui.QColor.fromRgb(255, 255, 255, 64))
 
@@ -1013,7 +1026,7 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         scrollArea = QtWidgets.QScrollArea()
         scrollArea.setWidget(baseWidget)
         scrollArea.setWidgetResizable(True)
-        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setWidget(scrollArea)
 
 
@@ -1300,11 +1313,11 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         self.textEdit = QtWidgets.QPlainTextEdit()
         self.textEdit.setEnabled(False)
         self.textEdit.textChanged.connect(self.updatePreview)
-        self.textEdit.setWordWrapMode(QtGui.QTextOption.NoWrap)
+        self.textEdit.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.textEdit.setMinimumWidth(128)
 
         self.prevWidget = QtWidgets.QLabel()
-        self.prevWidget.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.prevWidget.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         scrl = QScrollAreaWithContextMenuSignal()
         scrl.setWidget(self.prevWidget)
         scrl.setWidgetResizable(True)
@@ -1387,7 +1400,7 @@ class TextPreviewDock(QtWidgets.QDockWidget):
         if self.prevWidget.pixmap() is None:
             act.setEnabled(False)
 
-        menu.exec_(event.globalPos())
+        menu.exec(event.globalPos())
 
     def handleExport(self):
         """
@@ -1432,11 +1445,11 @@ class ViewWidget(QtWidgets.QGraphicsView):
         self.drawBaseline = False
         self.drawWidths = False
 
-        self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor.fromRgb(119, 136, 153)))
         self.setMouseTracking(True)
-        self.YScrollBar = QtWidgets.QScrollBar(Qt.Vertical, parent)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.YScrollBar = QtWidgets.QScrollBar(Qt.Orientation.Vertical, parent)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
 
     def updateDisplay(self):
@@ -1671,7 +1684,7 @@ class BRFNT:
             decoder = TPLLib.decoder(self.texFormat)
             decoder = decoder(tex, texWidth, texHeight)
             newdata = decoder.run()
-            dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format_ARGB32)
+            dest = QtGui.QImage(newdata, texWidth, texHeight, 4 * texWidth, QtGui.QImage.Format.Format_ARGB32)
 
             y = 0
             for a in range(self.charsPerColumn):
@@ -1705,6 +1718,7 @@ class BRFNT:
 
         self.encoding = 'UTF-16'
         self.endianness = '>'
+        self.offsetSize64 = False
         self.glyphs = []
 
         fontMetrics = QtGui.QFontMetrics(qfont)
@@ -1712,7 +1726,7 @@ class BRFNT:
         for c in chars:
             # make a pixmap
             rect = fontMetrics.boundingRect(c)
-            tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format_ARGB32)
+            tex = QtGui.QImage(fontMetrics.maxWidth(), fontMetrics.height(), QtGui.QImage.Format.Format_ARGB32)
             tex.fill(bgColor)
             painter = QtGui.QPainter(tex)
             painter.setPen(fgColor)
@@ -1722,7 +1736,7 @@ class BRFNT:
             painter.end()
 
             newtex = QtGui.QPixmap.fromImage(tex)
-            self.glyphs.append(Glyph(newtex, c, 0, fontMetrics.width(c), fontMetrics.width(c)))
+            self.glyphs.append(Glyph(newtex, c, 0, fontMetrics.horizontalAdvance(c), fontMetrics.horizontalAdvance(c)))
 
 
         self.rfntVersionMajor = 0xFFFE
@@ -1782,8 +1796,8 @@ class BRFNT:
         for g in self.glyphs:
             if currentTexP is None:
                 # make new tex
-                tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
-                tex.fill(QtCore.Qt.transparent)
+                tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format.Format_ARGB32_Premultiplied)
+                tex.fill(QtCore.Qt.GlobalColor.transparent)
                 currentTexP = QtGui.QPainter(tex)
                 texImages.append(tex)
 
@@ -2002,8 +2016,8 @@ class BRFNT:
         """
         texWidth, texHeight, rows, columns = self.getExportedImageMetrics()
 
-        tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format_ARGB32_Premultiplied)
-        tex.fill(QtCore.Qt.transparent)
+        tex = QtGui.QImage(texWidth, texHeight, QtGui.QImage.Format.Format_ARGB32_Premultiplied)
+        tex.fill(QtCore.Qt.GlobalColor.transparent)
         texP = QtGui.QPainter(tex)
 
         for i, g in enumerate(self.glyphs):
@@ -2102,4 +2116,4 @@ if __name__ == '__main__':
 
     window = Window()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
