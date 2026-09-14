@@ -1623,8 +1623,8 @@ class BRFNT:
             position = Entry[3]
 
 
-        self.rfntVersionMajor = RFNT[1]      # Major Font Version (0xFFFE)
-        self.rfntVersionMinor = RFNT[2]      # Minor Font Version (0x0104)
+        self.rfntBOM = RFNT[1]                  # Byte-order mark (0xFFFE)
+        self.rfntVersion = RFNT[2]              # Font Version (0x0104 = v1.4)
 
         self.fontType = FINF[2]                 #
         self.leading = FINF[3] + 1              # http://en.wikipedia.org/wiki/Leading
@@ -1725,8 +1725,8 @@ class BRFNT:
             self.glyphs.append(Glyph(newtex, c, 0, fontMetrics.width(c), fontMetrics.width(c)))
 
 
-        self.rfntVersionMajor = 0xFFFE
-        self.rfntVersionMinor = 0x0104
+        self.rfntBOM = 0xFFFE
+        self.rfntVersion = 0x0104
 
         self.fontType = 1
         self.leading = fontMetrics.height() + fontMetrics.leading() + 1
@@ -1902,8 +1902,8 @@ class BRFNT:
         # Fill in the RFNT header
         struct.pack_into(endian + '4sHHIHH', data, 0,
             b'RFNT' if endian == '>' else b'TNFR',
-            self.rfntVersionMajor,
-            self.rfntVersionMinor,
+            self.rfntBOM,
+            self.rfntVersion,
             len(data),
             0x10,
             numChunks)
