@@ -1051,6 +1051,9 @@ class FontMetricsDock(QtWidgets.QDockWidget):
         if name == 'endianness':
             Font.endianness = '><'[self.edits['endianness'].currentIndex()]
             return
+        elif name == 'encoding':
+            Font.encoding = ENCODINGS[self.edits['encoding'].currentIndex()]
+            return
 
         w = self.edits[name]
         if isinstance(w, QtWidgets.QComboBox):
